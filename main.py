@@ -29,9 +29,9 @@ for sub_subfolder in sub_subfolders:
                 
                 # Append to the appropriate list based on sub_subfolder (fold5 goes to test set)
                 if sub_subfolder == 'fold5':
-                    test_data.append({'Content': content, 'Subfolder': os.path.basename(folder_path)})
+                    test_data.append({'Content': content})
                 else:
-                    train_data.append({'Content': content, 'Subfolder': os.path.basename(folder_path)})
+                    train_data.append({'Content': content})
 
 # Create DataFrames
 train_df = pd.DataFrame(train_data)

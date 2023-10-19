@@ -2,8 +2,12 @@ import os
 import pandas as pd
 import string
 import nltk
-
+from nltk.stem import PorterStemmer
+from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+
+# Download the 'punkt' resource
+nltk.download('punkt')
 nltk.download('stopwords')
 
 # Path to the data folder
@@ -62,6 +66,17 @@ def remove_unnecessary(row):
     
     return row
 
+## implement stemming
+
+def stemming(row):
+    ps = PorterStemmer()
+    words = word_tokenize(row)
+    new_row = []
+    for w in words:
+        new_row.append(ps.stem(w))
+    return ' '.join(new_row)
+
+
 # Print first few rows of the dataframes
 print('Dataframe for fold1 to fold4:')
 print(df_train)
@@ -73,6 +88,9 @@ print(df_test)
 # Apply the remove_unnecessary function to each row in the df_train and df_test dataframes
 df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary)
 df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary)
+
+df_train['Review Text'] = df_train['Review Text'].apply(stemming)
+df_test['Review Text'] = df_test['Review Text'].apply(stemming)
 
 
 # print(labels_1_to_4)

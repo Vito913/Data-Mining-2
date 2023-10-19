@@ -1,5 +1,10 @@
 import os
 import pandas as pd
+import string
+import nltk
+
+from nltk.corpus import stopwords
+nltk.download('stopwords')
 
 # Path to the data folder
 data_folder = 'data/op_spam_v1.4'
@@ -37,8 +42,41 @@ for subdir in os.listdir(neg_subdirectory_path):
 df_train = pd.DataFrame({'Review Text': fold_1_to_4_files, 'Label': labels_1_to_4})
 df_test = pd.DataFrame({'Review Text': fold_5_files, 'Label': labels_5})
 
-print(labels_1_to_4)
-print(labels_5)
+
+def remove_unnecessary(row):
+    # Remove numbers
+    row = ''.join([i for i in row if not i.isdigit()])
+    
+    # Remove punctuations
+    row = row.translate(str.maketrans('', '', string.punctuation))
+    
+    # Remove stopwords
+    stop_words = set(stopwords.words('english'))
+    row = ' '.join([word for word in row.split() if word.lower() not in stop_words])
+    
+    # lowercase
+    row = row.lower()
+    
+    # Remove unnneccesary whitespaces
+    row = row.strip()
+    
+    return row
+
+# Print first few rows of the dataframes
+print('Dataframe for fold1 to fold4:')
+print(df_train)
+
+print('Dataframe for fold5:')
+print(df_test)
+
+
+# Apply the remove_unnecessary function to each row in the df_train and df_test dataframes
+df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary)
+df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary)
+
+
+# print(labels_1_to_4)
+# print(labels_5)
 
 # Print first few rows of the dataframes
 print('Dataframe for fold1 to fold4:')

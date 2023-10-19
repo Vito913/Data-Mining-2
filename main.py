@@ -6,10 +6,10 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 
-# Download the 'punkt' resource
 nltk.download('punkt')
 nltk.download('stopwords')
 
+nltk.download('averaged_perceptron_tagger')
 # Path to the data folder
 data_folder = 'data/op_spam_v1.4'
 
@@ -77,6 +77,14 @@ def stemming(row):
     return ' '.join(new_row)
 
 
+# Part of speech tagging
+
+def pos_tagging(row):
+    words = word_tokenize(row)
+    return nltk.pos_tag(words)
+
+
+
 # Print first few rows of the dataframes
 print('Dataframe for fold1 to fold4:')
 print(df_train)
@@ -86,12 +94,8 @@ print(df_test)
 
 
 # Apply the remove_unnecessary function to each row in the df_train and df_test dataframes
-df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary)
-df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary)
-
-df_train['Review Text'] = df_train['Review Text'].apply(stemming)
-df_test['Review Text'] = df_test['Review Text'].apply(stemming)
-
+df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
+df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
 
 # print(labels_1_to_4)
 # print(labels_5)

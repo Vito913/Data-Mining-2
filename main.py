@@ -1,5 +1,14 @@
 import os
 import pandas as pd
+import string
+import nltk
+from nltk.stem import PorterStemmer
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import CountVectorizer
+from itertools import chain
+
+
 # Define the path to your data folder
 data_path = "data/op_spam_v1.4/negative_polarity"
 
@@ -43,6 +52,10 @@ print(train_df.head(10),len(train_df))
 print("\nTest Set:")
 print(test_df.head(10),len(test_df))
 
+nltk.download('punkt')
+nltk.download('stopwords')
+
+nltk.download('averaged_perceptron_tagger')
 # Path to the data folder
 data_folder = 'data/op_spam_v1.4'
 
@@ -54,6 +67,8 @@ fold_1_to_4_files = []
 fold_5_files = []
 labels_1_to_4 = []
 labels_5 = []
+filenamesTrain = []
+filenamesTest = []
 
 # Loop through the 2 subdirectories inside 'neg'
 for subdir in os.listdir(neg_subdirectory_path):
@@ -64,6 +79,7 @@ for subdir in os.listdir(neg_subdirectory_path):
         if os.path.isdir(fold_path) and fold.startswith('fold'):
             for root, dirs, files in os.walk(fold_path):
                 for file in files:
+                    file_name = file
                     label = 0 if file[0].lower() == 't' else 1
                     file_path = os.path.join(root, file)
                     with open(file_path, 'r', encoding='utf-8') as file:
@@ -71,16 +87,53 @@ for subdir in os.listdir(neg_subdirectory_path):
                         if fold != 'fold5':
                             fold_1_to_4_files.append(file_content)
                             labels_1_to_4.append(label)
+                            filenamesTrain.append(file_name)
                         else:
                             fold_5_files.append(file_content)
                             labels_5.append(label)
+                            filenamesTest.append(file_name)
 
 # Create dataframes from the gathered file paths and labels
 df_train = pd.DataFrame({'Review Text': fold_1_to_4_files, 'Label': labels_1_to_4})
 df_test = pd.DataFrame({'Review Text': fold_5_files, 'Label': labels_5})
+#print(filenamesTrain)
+def remove_unnecessary(row):
+    # Remove numbers
+    row = ''.join([i for i in row if not i.isdigit()])
+    
+    # Remove punctuations
+    row = row.translate(str.maketrans('', '', string.punctuation))
+    
+    # Remove stopwords
+    stop_words = set(stopwords.words('english'))
+    row = ' '.join([word for word in row.split() if word.lower() not in stop_words])
+    
+    # lowercase
+    row = row.lower()
+    
+    # Remove unnneccesary whitespaces
+    row = row.strip()
+    
+    return row
 
-print(labels_1_to_4)
-print(labels_5)
+## implement stemming
+
+def stemming(row):
+    ps = PorterStemmer()
+    words = word_tokenize(row)
+    new_row = []
+    for w in words:
+        new_row.append(ps.stem(w))
+    return ' '.join(new_row)
+
+
+# Part of speech tagging
+
+def pos_tagging(row):
+    words = word_tokenize(row)
+    return nltk.pos_tag(words)
+
+
 
 # Print first few rows of the dataframes
 print('Dataframe for fold1 to fold4:')
@@ -89,3 +142,49 @@ print(df_train)
 print('Dataframe for fold5:')
 print(df_test)
 
+# Apply the remove_unnecessary function to each row in the df_train and df_test dataframes
+df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
+df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
+
+# print(labels_1_to_4)
+# print(labels_5)
+
+# Print first few rows of the dataframes
+print('Dataframe for fold1 to fold4:')
+print(df_train)
+
+print('Dataframe for fold5:')
+print(df_test)
+
+
+##remove sparse terms already done or not??
+
+##create document-term matrix for train data -> rows = files and columns = terms
+
+# Extract words without POS from the 'Review Text' column
+words_only_reviews = [[' '.join(word for word, pos in review)] for review in df_train['Review Text']]
+# Flatten the list of words into a single list
+all_words = list(chain.from_iterable(words_only_reviews))
+# Convert the list of words into space-separated strings for each review
+doc_strings = [' '.join(review) for review in words_only_reviews]
+# Initialize the CountVectorizer
+vectorizer = CountVectorizer()
+# Transform the documents into a document-term co-occurrence matrix
+doc_term_matrix = vectorizer.fit_transform(doc_strings)
+# Convert the document-term matrix to an array
+doc_term_matrix_array = doc_term_matrix.toarray()
+# Get the feature names (words) corresponding to the columns of the matrix
+feature_names = vectorizer.get_feature_names_out()
+docTermMatrix = pd.DataFrame(doc_term_matrix_array, columns=feature_names, index=filenamesTrain)
+print(docTermMatrix)
+
+'''
+#JUST TO TEST IF MATRIX IS CORRECT -> print non zero terms for review1 (d_hilton_1.txt)
+# Select the specific row by its index (document name)
+specific_row = docTermMatrix.loc['d_hilton_1.txt']
+# Find non-zero elements and their column names for the specified row
+non_zero_elements = specific_row[specific_row != 0]
+# Print non-zero elements and their column names for the specified row
+for column_name, value in non_zero_elements.items():
+    print(f'Column Name: {column_name}, Value: {value}')
+'''

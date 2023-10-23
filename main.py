@@ -54,8 +54,18 @@ print(test_df.head(10),len(test_df))
 
 nltk.download('punkt')
 nltk.download('stopwords')
-
 nltk.download('averaged_perceptron_tagger')
+
+# Checks if we are dropping a percentage of the terms
+drop = True
+# The amount of terms to drop
+drop_percent = 0.0015 
+# Checks if we are using part of speech tagging
+part_of_speech = True
+# Checks if we are using stemming
+stemming = True
+
+
 # Path to the data folder
 data_folder = 'data/op_spam_v1.4'
 
@@ -173,8 +183,12 @@ vectorizer = CountVectorizer()
 doc_term_matrix = vectorizer.fit_transform(doc_strings)
 # Convert the document-term matrix to an array
 doc_term_matrix_array = doc_term_matrix.toarray()
+if drop:
+    doc_term_matrix_array = doc_term_matrix_array[:, (doc_term_matrix_array.sum(axis=0) >= drop_percent * doc_term_matrix_array.shape[0])]
 # Get the feature names (words) corresponding to the columns of the matrix
 feature_names = vectorizer.get_feature_names_out()
+
+## Check which words happen less than drop_percent times and remove them from the matrix
 docTermMatrix = pd.DataFrame(doc_term_matrix_array, columns=feature_names, index=filenamesTrain)
 print(docTermMatrix)
 

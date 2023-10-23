@@ -7,7 +7,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import CountVectorizer
 from itertools import chain
-
+from sklearn.model_selection import KFold
 
 # Define the path to your data folder
 data_path = "data/op_spam_v1.4/negative_polarity"
@@ -178,13 +178,13 @@ feature_names = vectorizer.get_feature_names_out()
 docTermMatrix = pd.DataFrame(doc_term_matrix_array, columns=feature_names, index=filenamesTrain)
 print(docTermMatrix)
 
-'''
-#JUST TO TEST IF MATRIX IS CORRECT -> print non zero terms for review1 (d_hilton_1.txt)
-# Select the specific row by its index (document name)
-specific_row = docTermMatrix.loc['d_hilton_1.txt']
-# Find non-zero elements and their column names for the specified row
-non_zero_elements = specific_row[specific_row != 0]
-# Print non-zero elements and their column names for the specified row
-for column_name, value in non_zero_elements.items():
-    print(f'Column Name: {column_name}, Value: {value}')
-'''
+
+x = doc_term_matrix_array
+y = df_train['Label']
+kf = KFold(n_splits= 10, shuffle = True, random_state= 42)
+
+for train_index, val_index in kf.split(x):
+
+    X_train, X_val = x[train_index], x[val_index]
+    y_train, y_val = y[train_index], y[val_index]
+    

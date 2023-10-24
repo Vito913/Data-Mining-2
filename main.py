@@ -180,34 +180,48 @@ feature_names = vectorizer.get_feature_names_out()
 docTermMatrix = pd.DataFrame(doc_term_matrix_array, columns=feature_names, index=filenamesTrain)
 #print(docTermMatrix)
 
-#assigning two variables for the datapoints and the labels for cross-validation
+# assigning two variables for the datapoints and the labels for cross-validation
 x = doc_term_matrix_array
 y = df_train['Label']
 
-#split the data into 10 folds and every time train on 9 and test on 1
-kf = KFold(n_splits= 10, shuffle = True, random_state= 42)
+# split the data into 10 folds and every time train on 9 and test on 1
+kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
 # Define the range of lambda values to try
-Lambda = {'C': [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]}
-
+Lambda = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
+best_accuracy = 0
+best_lambda = None
 
 for train_index, val_index in kf.split(x):
 
     X_train, X_val = x[train_index], x[val_index]
     y_train, y_val = y[train_index], y[val_index]
+
     logistic_regression = LogisticRegression(penalty='l1', solver='liblinear')
-    grid_search = GridSearchCV(logistic_regression, Lambda, cv=10) 
+    grid_search = GridSearchCV(logistic_regression, Lambda, cv=10)
+
     # Perform the grid search
     grid_search.fit(X_train, y_train)
+
     # Get the best hyperparameter
     best_lambda = grid_search.best_params_['C']
+
     # Train the model with the best lambda
     best_model = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda)
     best_model.fit(X_train, y_train)
+
     # Predict on the validation set
     y_pred = best_model.predict(X_val)
+
     # Evaluate the model (e.g., calculate accuracy)
     accuracy = best_model.score(X_val, y_val)
-    # Print or store the evaluation metric(s) as needed
-    print(f'Accuracy: {accuracy}, Lambda: {best_lambda}')
+
+    # picking the best accuracy
+    if accuracy > best_accuracy:
+        best_accuracy = accuracy
+        best_lambda_final = best_lambda
+
+print(best_accuracy,best_lambda)
+#final_logistic_regression = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda_final)
+#final_logistic_regression.fit(x, y)
 

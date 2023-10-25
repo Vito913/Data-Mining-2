@@ -10,6 +10,8 @@ from itertools import chain
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
+from sklearn import tree
+import numpy as np
 
 # Define the path to your data folder
 data_path = "data/op_spam_v1.4/negative_polarity"
@@ -108,7 +110,7 @@ for subdir in os.listdir(neg_subdirectory_path):
 # Create dataframes from the gathered file paths and labels
 df_train = pd.DataFrame({'Review Text': fold_1_to_4_files, 'Label': labels_1_to_4})
 df_test = pd.DataFrame({'Review Text': fold_5_files, 'Label': labels_5})
-#print(filenamesTrain)
+
 def remove_unnecessary(row):
     # Remove numbers
     row = ''.join([i for i in row if not i.isdigit()])
@@ -158,8 +160,6 @@ def pos_tagging(row):
 df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
 df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
 
-# print(labels_1_to_4)
-# print(labels_5)
 
 # Print first few rows of the dataframes
 #print('Dataframe for fold1 to fold4:')
@@ -197,6 +197,7 @@ docTermMatrix = pd.DataFrame(doc_term_matrix_array, columns=feature_names, index
 # assigning two variables for the datapoints and the labels for cross-validation
 x = doc_term_matrix_array
 y = df_train['Label']
+
 
 # split the data into 10 folds and every time train on 9 and test on 1
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
@@ -239,3 +240,35 @@ print(best_accuracy,best_lambda)
 #final_logistic_regression = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda_final)
 #final_logistic_regression.fit(x, y)
 
+
+
+########### CLASSIFICATION TREES #####################
+
+param_grid = {"ccp_alpha": np.linspace(0, 0.1, 11)}
+best_alpha = 0
+best_accuracy_2_electric_boogaloo = 0
+
+for train_index, val_index in kf.split(x):
+
+    X_train, X_val = x[train_index], x[val_index]
+    y_train, y_val = y[train_index], y[val_index]
+
+    clf = tree.DecisionTreeClassifier()
+    grid_search = GridSearchCV(clf, param_grid=param_grid)
+    grid_search.fit(X_train, y_train)
+    #print("best alpha:", grid_search.best_params_['ccp_alpha'])
+    best_clf = grid_search.best_estimator_
+    best_clf.fit(X_train, y_train)
+    y_pred = best_clf.predict(X_val)
+    accuracy = best_clf.score(X_val, y_val)
+    print("accuracy:", accuracy)
+    
+    # Active selection of best hyperparameters
+    param_grid["ccp_alpha"] = np.linspace(max(0, grid_search.best_params_['ccp_alpha']-0.01), 
+                                           min(0.1, grid_search.best_params_['ccp_alpha']+0.01), 11)
+
+    if accuracy > best_accuracy_2_electric_boogaloo:
+        best_accuracy_2_electric_boogaloo = accuracy
+        best_alpha = grid_search.best_params_['ccp_alpha']
+        
+print(best_accuracy_2_electric_boogaloo, best_alpha)

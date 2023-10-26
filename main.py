@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import string
+import time
 import nltk
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
@@ -12,11 +13,14 @@ from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn import tree
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+
 import numpy as np
 
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('averaged_perceptron_tagger')
+#nltk.download('punkt')
+#nltk.download('stopwords')
+#nltk.download('averaged_perceptron_tagger')
 
 # Checks if we are dropping a percentage of the terms
 drop = True
@@ -122,34 +126,49 @@ all_words_test = list(chain.from_iterable(words_only_reviews_test))
 # Convert the list of words into space-separated strings for each review
 doc_strings_train = [' '.join(review) for review in words_only_reviews_train]
 doc_strings_test = [' '.join(review) for review in words_only_reviews_test]
+
 # Initialize the CountVectorizer
 vectorizerTrain = CountVectorizer()
-vectorizerTest = CountVectorizer()
 # Transform the documents into a document-term co-occurrence matrix
 doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
-doc_term_matrix_test = vectorizerTest.fit_transform(doc_strings_test)
+# Initialize the CountVectorizer with the vocabulary from the training data
+vectorizerTest = CountVectorizer(vocabulary=vectorizerTrain.vocabulary_)
+# Transform the test documents into a document-term co-occurrence matrix using the same vocabulary
+doc_term_matrix_test = vectorizerTest.transform(doc_strings_test)
+
 # Convert the document-term matrix to an array
 doc_term_matrix_array_train = doc_term_matrix_train.toarray()
 doc_term_matrix_array_test = doc_term_matrix_test.toarray()
 if drop:
     doc_term_matrix_array_train = doc_term_matrix_array_train[:, (doc_term_matrix_array_train.sum(axis=0) >= drop_percent * doc_term_matrix_array_train.shape[0])]
-    #also for test?? or should we just drop same words dropped in test?????????????
 
 # Get the feature names (words) corresponding to the columns of the matrix
 feature_names_train = vectorizerTrain.get_feature_names_out()
-feature_names_test = vectorizerTest.get_feature_names_out()
+
 ## Check which words happen less than drop_percent times and remove them from the matrix
 docTermMatrixTrain = pd.DataFrame(doc_term_matrix_array_train, columns=feature_names_train, index=filenamesTrain)
+# Ensure that the test matrix only includes words from the training matrix
+docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_train, index=filenamesTest)
 print(docTermMatrixTrain)
-
-docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_test, index=filenamesTest)
 print(docTermMatrixTest)
+
+'''
+#to test if words in doc makes sense
+# Select the specific row by its index (document name)
+specific_row = docTermMatrixTest.loc['d_allegro_1.txt']
+# Find non-zero elements and their column names for the specified row
+non_zero_elements = specific_row[specific_row != 0]
+# Print non-zero elements and their column names for the specified row
+for column_name, value in non_zero_elements.items():
+    print(f'Column Name: {column_name}, Value: {value}')
+'''
+
 
 # assigning two variables for the datapoints and the labels for cross-validation
 x = doc_term_matrix_array_train
 y = df_train['Label']
 
-
+'''
 ######################## LOGISTIC REGRESSION ############################
 
 # split the data into 10 folds and every time train on 9 and test on 1
@@ -225,19 +244,32 @@ for train_index, val_index in kf.split(x):
         
 print(best_accuracy_2_electric_boogaloo, best_alpha)
 
-
+'''
 ################ RANDOM FOREST #####################
 
 
 param_grid = {
-    'n_estimators': [200, 400, 500, 600, 700, 800, 1000],  # List of different numbers of trees
+    'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
     'max_features': ['sqrt', 'log2', None]  # Different options for max_features
+    
 }
 cv = KFold(n_splits=10, shuffle=True, random_state=42) 
 rf = RandomForestClassifier(random_state=42)
 grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=cv, n_jobs=-1)
+#serch for best params config using 10-fold cross validation
+#for every parameters combo, model is trained (on 9 folds) and tested (on 1 fold) 10 times; val. accuracy is mean of all 10 trials per param combo!
+start_time = time.time()
 history = grid_search.fit(doc_term_matrix_array_train, df_train['Label'])
+end_time = time.time()
+print("time for greed search", start_time - end_time)
 
+# Print validation accuracy for each parameter combination
+print("Validation Accuracy for Each Parameter Combination:")
+for params, test_score in zip(grid_search.cv_results_['params'], grid_search.cv_results_['mean_test_score']):
+    print(f"Parameters: {params}, Validation Accuracy: {test_score:.4f}")
+
+
+#go on with the best config!
 best_n_estimators = grid_search.best_params_['n_estimators']
 best_max_features = grid_search.best_params_['max_features']
 best_rf_model = grid_search.best_estimator_
@@ -249,13 +281,9 @@ print("Best model", best_rf_model)
 
 #actually train model and predict
 rf2 = RandomForestClassifier(n_estimators = best_n_estimators, max_features = best_max_features).fit(doc_term_matrix_array_train, df_train['Label'])
-'''
+train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
+print("best params train accuracy", train_accuracy)
+#predict on test set
 y_pred = rf2.predict(doc_term_matrix_array_test)
-print(accuracy_score(df_test['Label'], y_pred))
-'''
-
-# Print training and validation accuracy for each fold
-print("Training and Validation Accuracy for Each Fold:")
-for i, (train_res, test_res) in enumerate(zip(history.cv_results_, history.cv_results_)):
-    print(f"Fold {i+1}: Training results: {train_res}, Validation Results: {test_res}")
-
+test_accuracy = accuracy_score(df_test['Label'], y_pred)
+print("best params test accuracy", test_accuracy )

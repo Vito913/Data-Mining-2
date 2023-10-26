@@ -168,7 +168,7 @@ for column_name, value in non_zero_elements.items():
 x = doc_term_matrix_array_train
 y = df_train['Label']
 
-'''
+
 ######################## LOGISTIC REGRESSION ############################
 
 # split the data into 10 folds and every time train on 9 and test on 1
@@ -244,7 +244,7 @@ for train_index, val_index in kf.split(x):
         
 print(best_accuracy_2_electric_boogaloo, best_alpha)
 
-'''
+
 ################ RANDOM FOREST #####################
 
 

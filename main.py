@@ -240,19 +240,19 @@ def decision_tree_classification(x, y, kf):
     return best_accuracy, best_alpha
 ################ RANDOM FOREST #####################
 
-def random_forest_classification(doc_term_matrix_array_train: pd.DataFrame, df_train: pd.DataFrame) -> (float, str, RandomForestClassifier):
+def random_forest_classification(x: pd.DataFrame, y: pd.DataFrame,kf) -> (float, str, RandomForestClassifier):
     param_grid = {
         'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
         'max_features': ['sqrt', 'log2', None]  # Different options for max_features
     }
-    cv = KFold(n_splits=10, shuffle=True, random_state=42) 
+
     rf = RandomForestClassifier(random_state=42)
-    grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=cv, n_jobs=-1)
+    grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=kf, n_jobs=-1)
 
     #search for best params config using 10-fold cross validation
     #for every parameters combo, model is trained (on 9 folds) and tested (on 1 fold) 10 times; val. accuracy is mean of all 10 trials per param combo!
     start_time = time.time()
-    history = grid_search.fit(doc_term_matrix_array_train, df_train['Label'])
+    history = grid_search.fit(x, y)
     end_time = time.time()
     print("time for greed search", start_time - end_time)
 
@@ -289,12 +289,6 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
     # Get the feature names (words) corresponding to the columns of the matrix
     feature_names_train = vectorizerTrain.get_feature_names_out()
     feature_names_train_pos = vectorizerTrainPos.get_feature_names_out()
-
-    print(feature_names_train.shape)
-    print(feature_names_train_pos.shape)
-    print("drop", drop, "drop_percent", drop_percent, "part_of_speech", part_of_speech)
-    print(filenamesTrain.__len__())
-    print(doc_term_matrix_train.shape)
     
     # Ensure that the test matrix only includes words from the training matrix
     docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_train, index=filenamesTest)
@@ -316,7 +310,7 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
     accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf)
     print("best_lambda", current_best_lambda)
     print("best_accuracy", accuracy_logistic)
-    best_n_estimators, best_max_features, best_rf_model = random_forest_classification(x, df_train)
+    best_n_estimators, best_max_features, best_rf_model = random_forest_classification(x, y,kf)
     print("best_n_estimators", best_n_estimators)
     print("best_max_features", best_max_features)
     print("best_rf_model", best_rf_model)

@@ -123,24 +123,24 @@ df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary).apply(
 # Extract words without POS from the 'Review Text' column
 
 # Extract words without POS from the 'Review Text' column
-words = [[' '.join(word for word, pos in review)] for review in df_train['Review Text']]
-words = [[' '.join(word for word, pos in review)] for review in df_test['Review Text']]
+words = [[' '.join(word for word, _ in review)] for review in df_train['Review Text']]
+words_test = [[' '.join(word for word, _ in review)] for review in df_test['Review Text']]
 
 # Extract words with POS from the 'Review Text' column
 words_and_pos = [[' '.join(f"{word}_{pos}" for word, pos in review)] for review in df_train['Review Text']]
-words_and_pos = [[' '.join(f"{word}_{pos}" for word, pos in review)] for review in df_test['Review Text']]
+words_and_pos_test = [[' '.join(f"{word}_{pos}" for word, pos in review)] for review in df_test['Review Text']]
 
 # Get all words from the training and test data
 all_words_train = list(chain.from_iterable(words))
-all_words_test = list(chain.from_iterable(words))
+all_words_test = list(chain.from_iterable(words_test))
 
 # Convert the list of words into space-separated strings for each review
 doc_strings_train = [' '.join(review) for review in words]
-doc_strings_test = [' '.join(review) for review in words]
+doc_strings_test = [' '.join(review) for review in words_test]
 
 # Convert the list of words with POS into space-separated strings for each review
 doc_strings_train_pos = [' '.join(review) for review in words_and_pos]
-doc_strings_test_pos = [' '.join(review) for review in words_and_pos]
+doc_strings_test_pos = [' '.join(review) for review in words_and_pos_test]
 
 # Initialize the CountVectorizer
 vectorizerTrain = CountVectorizer()
@@ -166,24 +166,6 @@ doc_term_matrix_array_test = doc_term_matrix_test.toarray()
 doc_term_matrix_array_train_pos = doc_term_matrix_train_pos.toarray()
 doc_term_matrix_array_test_pos = doc_term_matrix_test_pos.toarray()
 
-if drop:
-    doc_term_matrix_array_train = doc_term_matrix_array_train[:, (doc_term_matrix_array_train.sum(axis=0) >= drop_percent * doc_term_matrix_array_train.shape[0])]
-    doc_term_matrix_array_train_pos = doc_term_matrix_array_train_pos[:, (doc_term_matrix_array_train_pos.sum(axis=0) >= drop_percent * doc_term_matrix_array_train_pos.shape[0])]
-
-# Get the feature names (words) corresponding to the columns of the matrix
-feature_names_train = vectorizerTrain.get_feature_names_out()
-feature_names_train_pos = vectorizerTrainPos.get_feature_names_out()
-
-## Check which words happen less than drop_percent times and remove them from the matrix
-docTermMatrixTrain = pd.DataFrame(doc_term_matrix_array_train, columns=feature_names_train, index=filenamesTrain)
-docTermMatrixTrainPos = pd.DataFrame(doc_term_matrix_array_train_pos, columns=feature_names_train_pos, index=filenamesTrain)
-
-# Ensure that the test matrix only includes words from the training matrix
-docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_train, index=filenamesTest)
-docTermMatrixTestPos = pd.DataFrame(doc_term_matrix_array_test_pos, columns=feature_names_train_pos, index=filenamesTest)
-
-print(docTermMatrixTrain)
-print(docTermMatrixTest)
 
 '''
 #to test if words in doc makes sense
@@ -198,9 +180,6 @@ for column_name, value in non_zero_elements.items():
 
 
 # assigning two variables for the datapoints and the labels for cross-validation
-x = doc_term_matrix_array_train
-y = df_train['Label']
-
 
 ######################## LOGISTIC REGRESSION ############################
 
@@ -261,7 +240,7 @@ def decision_tree_classification(x, y, kf):
     return best_accuracy, best_alpha
 ################ RANDOM FOREST #####################
 
-def random_forest_classification(doc_term_matrix_array_train: pd.DataFrame, df_train: pd.DataFrame) -> Tuple[float, str, RandomForestClassifier]:
+def random_forest_classification(doc_term_matrix_array_train: pd.DataFrame, df_train: pd.DataFrame) -> (float, str, RandomForestClassifier):
     param_grid = {
         'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
         'max_features': ['sqrt', 'log2', None]  # Different options for max_features
@@ -296,14 +275,35 @@ def random_forest_classification(doc_term_matrix_array_train: pd.DataFrame, df_t
 
 
 
-#### LOOP OVER THIS ####
-_ , best_lambda = logistic_regression_classification(x, y, kf)
-best_n_estimators, best_max_features, best_rf_model = random_forest_classification(doc_term_matrix_array_train, df_train)
-_, best_alpha = decision_tree_classification(x, y, kf)
+best_overall_alpha = 0
+best_overall_lambda = 0
+best_overall_n_estimators = 0
 
+for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [True, False]):
+    
+    if drop:
+        doc_term_matrix_array_train = doc_term_matrix_array_train[:, (doc_term_matrix_array_train.sum(axis=0) >= drop_percent * doc_term_matrix_array_train.shape[0])]
+        doc_term_matrix_array_train_pos = doc_term_matrix_array_train_pos[:, (doc_term_matrix_array_train_pos.sum(axis=0) >= drop_percent * doc_term_matrix_array_train_pos.shape[0])]
+        # Update the filenamesTrain list to match the number of rows in the modified doc_term_matrix_array_train
 
+    # Get the feature names (words) corresponding to the columns of the matrix
+    feature_names_train = vectorizerTrain.get_feature_names_out()
+    feature_names_train_pos = vectorizerTrainPos.get_feature_names_out()
 
-for drop, drop_percent, part_of_speech, in product([True,False], [0.0015, 0.002, 0.0025, 0.003], [True, False]):
+    print(feature_names_train.shape)
+    print(feature_names_train_pos.shape)
+    print("drop", drop, "drop_percent", drop_percent, "part_of_speech", part_of_speech)
+    print(filenamesTrain.__len__())
+    print(doc_term_matrix_train.shape)
+    
+    # Ensure that the test matrix only includes words from the training matrix
+    docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_train, index=filenamesTest)
+    docTermMatrixTestPos = pd.DataFrame(doc_term_matrix_array_test_pos, columns=feature_names_train_pos, index=filenamesTest)
+    
+    ## Check which words happen less than drop_percent times and remove them from the matrix
+    docTermMatrixTrain = pd.DataFrame(doc_term_matrix_array_train, columns=feature_names_train, index=filenamesTrain)
+    docTermMatrixTrainPos = pd.DataFrame(doc_term_matrix_array_train_pos, columns=feature_names_train_pos, index=filenamesTrain)
+
     if part_of_speech:
         doc_term_matrix_array_train = doc_term_matrix_array_train_pos
         doc_term_matrix_array_test = doc_term_matrix_array_test_pos
@@ -311,7 +311,27 @@ for drop, drop_percent, part_of_speech, in product([True,False], [0.0015, 0.002,
         doc_term_matrix_array_train = doc_term_matrix_array_train
         doc_term_matrix_array_test = doc_term_matrix_array_test
     y = df_train['Label']
+    x = doc_term_matrix_array_train
     
+    accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf)
+    print("best_lambda", current_best_lambda)
+    print("best_accuracy", accuracy_logistic)
+    best_n_estimators, best_max_features, best_rf_model = random_forest_classification(x, df_train)
+    print("best_n_estimators", best_n_estimators)
+    print("best_max_features", best_max_features)
+    print("best_rf_model", best_rf_model)
+    accuracy_trees, best_alpha = decision_tree_classification(x, y, kf)
+    print("best_alpha", best_alpha)
+    print("accuracy_trees", accuracy_trees)
+    if accuracy_logistic > best_overall_lambda:
+        best_overall_lambda = accuracy_logistic
+        best_overall_alpha = current_best_lambda
+    if accuracy_trees > best_overall_alpha:
+        best_overall_alpha = accuracy_trees
+        best_overall_lambda = current_best_lambda
+    if best_n_estimators > best_overall_n_estimators:
+        best_overall_n_estimators = best_n_estimators
+        best_overall_max_features = best_max_features
 
 
 
@@ -325,7 +345,7 @@ print(f"Average Accuracy (Naive Bayes): {cv_scores.mean()}")
 
 #Train and test on the test set Random Forest
 
-rf2 = RandomForestClassifier(n_estimators = best_n_estimators, max_features = best_max_features).fit(doc_term_matrix_array_train, df_train['Label'])
+rf2 = RandomForestClassifier(n_estimators = best_overall_n_estimators, max_features = best_overall_max_features).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy", train_accuracy)
 #predict on test set
@@ -334,7 +354,7 @@ test_accuracy = accuracy_score(df_test['Label'], y_pred)
 print("best params test accuracy random random forest", test_accuracy )
 
 #Train and test on the test set Logistic Regression 
-logreg2= LogisticRegression(penalty='l1', C=best_lambda, solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
+logreg2= LogisticRegression(penalty='l1', C=best_overall_lambda, solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy_logreg = logreg2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy", train_accuracy_logreg)
 #predict on test set

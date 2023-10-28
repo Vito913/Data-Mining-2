@@ -15,7 +15,8 @@ from sklearn.model_selection import GridSearchCV
 from sklearn import tree
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
-
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.model_selection import cross_val_score
 import numpy as np
 
 #nltk.download('punkt')
@@ -172,46 +173,30 @@ y = df_train['Label']
 ######################## LOGISTIC REGRESSION ############################
 
 # split the data into 10 folds and every time train on 9 and test on 1
+
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
-# Define the range of lambda values to try
+# Define the range of lambda values to try "I am suspicious of the range of values still"
 Lambda = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
-best_accuracy = 0
-best_lambda = None
 
-for train_index, val_index in kf.split(x):
 
-    X_train, X_val = x[train_index], x[val_index]
-    y_train, y_val = y[train_index], y[val_index]
+logistic_regression = LogisticRegression(penalty='l1', solver='liblinear')
 
-    logistic_regression = LogisticRegression(penalty='l1', solver='liblinear')
-    grid_search = GridSearchCV(logistic_regression, Lambda, cv=10)
+grid_search = GridSearchCV(estimator = logistic_regression, param_grid = Lambda, cv=kf)
 
-    # Perform the grid search
-    grid_search.fit(X_train, y_train)
+# Perform the grid search
+grid_search.fit(x, y)
 
-    # Get the best hyperparameter
-    best_lambda = grid_search.best_params_['C']
+# Get the best hyperparameter
+best_lambda = grid_search.best_params_['C']
 
-    # Train the model with the best lambda
-    best_model = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda)
-    best_model.fit(X_train, y_train)
+# Get the best model
+best_model = grid_search.best_estimator_
 
-    # Predict on the validation set
-    y_pred = best_model.predict(X_val)
+# Get the best cross-validated score
+best_accuracy = grid_search.best_score_
 
-    # Evaluate the model (e.g., calculate accuracy)
-    accuracy = best_model.score(X_val, y_val)
-
-    # picking the best accuracy
-    if accuracy > best_accuracy:
-        best_accuracy = accuracy
-        best_lambda_final = best_lambda
-
-print(best_accuracy,best_lambda)
-#final_logistic_regression = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda_final)
-#final_logistic_regression.fit(x, y)
-
+print(best_accuracy, best_lambda)
 
 ########### CLASSIFICATION TREES #####################
 
@@ -247,7 +232,6 @@ print(best_accuracy_2_electric_boogaloo, best_alpha)
 
 ################ RANDOM FOREST #####################
 
-
 param_grid = {
     'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
     'max_features': ['sqrt', 'log2', None]  # Different options for max_features
@@ -279,11 +263,29 @@ print("Best max features:", best_max_features)
 print("Best model", best_rf_model)
 
 
-#actually train model and predict
+################ Naive Bayes without bigram nor features selection "Chi-square" #####################
+naive_bayes = MultinomialNB()
+cv_scores = cross_val_score(naive_bayes, x, y, cv=10) 
+print(f"Average Accuracy (Naive Bayes): {cv_scores.mean()}")
+
+
+
+#Train and test on the test set Random Forest
+
 rf2 = RandomForestClassifier(n_estimators = best_n_estimators, max_features = best_max_features).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy", train_accuracy)
 #predict on test set
 y_pred = rf2.predict(doc_term_matrix_array_test)
 test_accuracy = accuracy_score(df_test['Label'], y_pred)
-print("best params test accuracy", test_accuracy )
+print("best params test accuracy random random forest", test_accuracy )
+
+#Train and test on the test set Logistic Regression 
+logreg2= LogisticRegression(penalty='l1', C=best_lambda, solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
+train_accuracy_logreg = logreg2.score(doc_term_matrix_array_train, df_train['Label'])
+print("best params train accuracy", train_accuracy_logreg)
+#predict on test set
+y_pred_logreg = logreg2.predict(doc_term_matrix_array_test)
+test_accuracy_logreg= accuracy_score(df_test['Label'], y_pred_logreg)
+print("best params test accuracy logreg", test_accuracy_logreg)
+

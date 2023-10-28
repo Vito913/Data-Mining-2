@@ -9,6 +9,7 @@ from nltk.corpus import stopwords
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from itertools import chain, product
+from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
@@ -18,6 +19,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import cross_val_score
 import numpy as np
+from sklearn.pipeline import Pipeline
 
 #nltk.download('punkt')
 #nltk.download('stopwords')
@@ -331,9 +333,35 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
 
 
 ################ Naive Bayes without bigram nor features selection "Chi-square" #####################
-naive_bayes = MultinomialNB()
-cv_scores = cross_val_score(naive_bayes, x, y, cv=10) 
-print(f"Average Accuracy (Naive Bayes): {cv_scores.mean()}")
+# Create a pipeline with feature selection and Naive Bayes classifier
+pipeline = Pipeline([
+    ('chi2', SelectKBest(chi2)),
+    ('naive_bayes', MultinomialNB())
+])
+
+# Define a range of k values to experiment with
+k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+# Create a parameter grid with the k values
+param_grid = {
+    'chi2__k': k_values
+}
+
+# Perform Grid Search with 10-fold cross-validation
+grid_search = GridSearchCV(pipeline, param_grid=param_grid, cv=10, scoring='accuracy')
+
+# Fit the Grid Search on the data
+grid_search.fit(x, y)
+
+print("CHI SQUARE")
+# Print validation accuracy for each parameter combination
+print("Validation Accuracy for Each Parameter Combination:")
+for params, test_score in zip(grid_search.cv_results_['params'], grid_search.cv_results_['mean_test_score']):
+    print(f"Parameters: {params}, Validation Accuracy: {test_score:.4f}")
+
+# Print the best parameters and corresponding accuracy score
+print("Best Parameters: ", grid_search.best_params_)
+print("Best Accuracy Score: ", grid_search.best_score_)
+
 
 
 

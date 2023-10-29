@@ -144,26 +144,20 @@ doc_strings_test_pos = [' '.join(review) for review in words_and_pos_test]
 
 # Initialize the CountVectorizer
 
-#no pos, no bigram
+# Initialize the CountVectorizer
 vectorizerTrain = CountVectorizer()
-doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
-
-vectorizerTest = CountVectorizer(vocabulary=vectorizerTrain.vocabulary_)
-doc_term_matrix_test = vectorizerTest.transform(doc_strings_test)
-
-#pos
 vectorizerTrainPos = CountVectorizer()
-doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
-
-vectorizerTestPos = CountVectorizer(vocabulary=vectorizerTrainPos.vocabulary_)
-doc_term_matrix_test_pos = vectorizerTestPos.transform(doc_strings_test_pos)
-
-#bigram
 vectorizedBigramTrain = CountVectorizer(ngram_range=(2, 2))
+
+# Create document-term matrix for train data -> rows = files and columns = terms
+doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
+doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
 doc_term_matrix_train_bigram = vectorizedBigramTrain.fit_transform(doc_strings_train)
 
-vectorizedBigramTest = CountVectorizer(vocabulary=vectorizedBigramTrain.vocabulary_)
-doc_term_matrix_test_bigram = vectorizedBigramTest.transform(doc_strings_test)
+# Create document-term matrix for test data -> rows = files and columns = terms
+doc_term_matrix_test = vectorizerTrain.transform(doc_strings_test)
+doc_term_matrix_test_pos = vectorizerTrainPos.transform(doc_strings_test_pos)
+doc_term_matrix_test_bigram = vectorizedBigramTrain.transform(doc_strings_test)
 
 # Convert the document-term matrix to an array
 doc_term_matrix_array_train = doc_term_matrix_train.toarray()
@@ -302,42 +296,42 @@ best_random_forest = {"drop": True, "drop_percent": 0, "part_of_speech": True, "
 best_naive = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_k": 0, "best_accuracy": 0}
 
 #for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [False,True]):
-for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002], [False,True]):   
+for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002], [False,True]):
     
-    print("params now:", drop, drop_percent, part_of_speech)
-    # Check if we are dropping a percentage of the terms
-    if drop:
-        doc_term_matrix_array_train = doc_term_matrix_array_train[:, (doc_term_matrix_array_train.sum(axis=0) >= drop_percent * doc_term_matrix_array_train.shape[0])]
-        doc_term_matrix_array_train_pos = doc_term_matrix_array_train_pos[:, (doc_term_matrix_array_train_pos.sum(axis=0) >= drop_percent * doc_term_matrix_array_train_pos.shape[0])]
-        # Update the filenamesTrain list to match the number of rows in the modified doc_term_matrix_array_train
-
-    # Get the feature names (words) corresponding to the columns of the matrix
-    feature_names_train = vectorizerTrain.get_feature_names_out()
-    feature_names_train_pos = vectorizerTrainPos.get_feature_names_out()
-    
-
-    
-    print("len feat names", len(feature_names_train))
-    print("test matrix", doc_term_matrix_array_test.shape)
-    print("test matrix pos", doc_term_matrix_array_train_pos.shape)
-
-
-    # Ensure that the test matrix only includes words from the training matrix
-    docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_train, index=filenamesTest)
-    docTermMatrixTestPos = pd.DataFrame(doc_term_matrix_array_test_pos, columns=feature_names_train_pos, index=filenamesTest)
-    
-    ## Check which words happen less than drop_percent times and remove them from the matrix
-    docTermMatrixTrain = pd.DataFrame(doc_term_matrix_array_train, columns=feature_names_train, index=filenamesTrain)
-    docTermMatrixTrainPos = pd.DataFrame(doc_term_matrix_array_train_pos, columns=feature_names_train_pos, index=filenamesTrain)
 
     # Checks if part of speech tagging is used
     if part_of_speech:
-        doc_term_matrix_array_train = doc_term_matrix_array_train_pos
-        doc_term_matrix_array_test = doc_term_matrix_array_test_pos
-    else:
-        doc_term_matrix_array_train = doc_term_matrix_array_train
-        doc_term_matrix_array_test = doc_term_matrix_array_test
+        current_matrix_train = doc_term_matrix_array_train_pos
+        current_matrix_test = doc_term_matrix_array_test_pos
+        feature_names_train = vectorizerTrainPos.get_feature_names_out()
     
+        
+    else:
+        current_matrix_train = doc_term_matrix_array_train
+        current_matrix_test = doc_term_matrix_array_test
+        feature_names_train = vectorizerTrain.get_feature_names_out()
+    
+
+    
+    print("params now:", drop, drop_percent, part_of_speech)
+    
+    # Check if we are dropping a percentage of the terms
+    if drop:
+        current_matrix_train = current_matrix_train[:, (current_matrix_train.sum(axis=0) >= drop_percent * current_matrix_train.shape[0])]
+    #  Update the filenamesTrain list to match the number of rows in the modified doc_term_matrix_array_train
+
+    # Get the feature names (words) corresponding to the columns of the matrix
+
+
+    print("len feat names", len(feature_names_train))
+    print("test matrix", doc_term_matrix_array_test.shape)
+
+
+    # # Ensure that the test matrix only includes words from the training matrix
+    docTermMatrixTest = pd.DataFrame(current_matrix_test, columns=feature_names_train, index=filenamesTest)
+
+    ## Check which words happen less than drop_percent times and remove them from the matrix
+    docTermMatrixTrain = pd.DataFrame(current_matrix_train, columns=feature_names_train, index=filenamesTrain)
     # Set the labels
     x = doc_term_matrix_array_train
     y = df_train['Label']
@@ -392,15 +386,13 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
 
 
 #PRINT BEST DICTIONARY (best param config) PER MODEL
-print()
+
 print("decision tree results", best_tree_model)
 print("logistic regression results", best_logistic_model)
 print("random forest results", best_random_forest)
 print("naive bayes results", best_naive)
-print()
 
 
-            
 
 
 #TRAIN AND TEST BEST MODELS AFTER CV

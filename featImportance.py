@@ -215,7 +215,7 @@ grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=cv, n_jobs=-1
 start_time = time.time()
 history = grid_search.fit(doc_term_matrix_array_train, df_train['Label'])
 end_time = time.time()
-print("time for greed search", start_time - end_time)
+print("time for greed search", end_time - start_time)
 
 # Print validation accuracy for each parameter combination
 print("Validation Accuracy for Each Parameter Combination:")
@@ -249,11 +249,14 @@ treeLike_models = [tree2, rf2]
 
 for model in treeLike_models:
     #inspect features (default)
+    print("Working on ", model, "\n")
+    
     feat_importances = pd.Series(model.feature_importances_, index = docTermMatrixTrain.columns).sort_values(ascending = True)
     top_n_features_test = feat_importances.nlargest(5)
     top_n_features_test.plot(kind = 'barh')
-    plt.show()
-    plt.savefig(model + "_default_topNfeats")
+    plt.savefig(str(model) + "_default_topNfeats.jpg")
+    #plt.show()
+   
 
 
     #calculate permutation importance  
@@ -281,7 +284,7 @@ for model in treeLike_models:
     top_n_features_class_1_train = pd.DataFrame(importances_class_1_train, columns=feature_names_sorted_class1)
     top_n_features_class_0_train = pd.DataFrame(importances_class_0_train, columns=feature_names_sorted_class0)
 
-    f, axs = plt.subplots(2, figsize=(15, 10))
+    f, axs = plt.subplots(1, 2, figsize=(15, 10))
 
     top_n_features_class_1_train.plot.box(vert=False, whis=10, ax=axs[0, 0])
     axs[0, 0].set_title("Permutation Importances (Class 1, Test set)")
@@ -294,8 +297,8 @@ for model in treeLike_models:
     axs[0, 1].set_xlabel("Decrease in accuracy score")
 
     plt.tight_layout()
+    plt.savefig(str(model) + "_class_0_1_topNfeats.jpg")
     plt.show()
-    plt.savefig(model + "_class_0_1_topNfeats")
 
 
 ######################## LOGISTIC REGRESSION ############################

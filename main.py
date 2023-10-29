@@ -147,6 +147,8 @@ doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_p
 vectorizerTestPos = CountVectorizer(vocabulary=vectorizerTrainPos.vocabulary_)
 doc_term_matrix_test_pos = vectorizerTestPos.transform(doc_strings_test_pos)
 
+
+
 vectorizedBigramTrain = CountVectorizer(ngram_range=(2, 2))
 doc_term_matrix_train_bigram = vectorizedBigramTrain.fit_transform(doc_strings_train)
 
@@ -181,14 +183,13 @@ for column_name, value in non_zero_elements.items():
 
 # split the data into 10 folds and every time train on 9 and test on 1
 
-kf = KFold(n_splits=10, shuffle=True, random_state=42)
-def logistic_regression_classification(x, y, kf):
+
+def logistic_regression_classification(x, y, kf, lambda_values):
     # Define the range of lambda values to try
-    Lambda = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
 
     logistic_regression = LogisticRegression(penalty='l1', solver='liblinear')
 
-    grid_search = GridSearchCV(estimator=logistic_regression, param_grid=Lambda, cv=kf)
+    grid_search = GridSearchCV(estimator=logistic_regression, param_grid=lambda_values, cv=kf)
 
     # Perform the grid search
     grid_search.fit(x, y)
@@ -206,8 +207,8 @@ def logistic_regression_classification(x, y, kf):
 
 ########### CLASSIFICATION TREES #####################
 
-def decision_tree_classification(x, y, kf):
-    param_grid = {"ccp_alpha": np.linspace(0, 0.2, 20)}
+def decision_tree_classification(x, y, kf, param_grid):
+
     best_alpha = 0
     best_accuracy = 0
 
@@ -236,11 +237,8 @@ def decision_tree_classification(x, y, kf):
     return best_accuracy, best_alpha
 ################ RANDOM FOREST #####################
 
-def random_forest_classification(x: pd.DataFrame, y: pd.DataFrame,kf) -> (float, str, RandomForestClassifier):
-    param_grid = {
-        'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
-        'max_features': ['sqrt', 'log2', None]  # Different options for max_features
-    }
+def random_forest_classification(x: pd.DataFrame, y: pd.DataFrame,kf: KFold, param_grid: dict) -> (float, str, RandomForestClassifier):
+
 
     rf = RandomForestClassifier(random_state=42)
     grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=kf, n_jobs=-1)
@@ -261,22 +259,83 @@ def random_forest_classification(x: pd.DataFrame, y: pd.DataFrame,kf) -> (float,
     best_n_estimators = grid_search.best_params_['n_estimators']
     best_max_features = grid_search.best_params_['max_features']
     best_rf_model = grid_search.best_estimator_
+    best_accuracy = grid_search.best_score_
     #access best params
     print("Best number of trees:", best_n_estimators)
     print("Best max features:", best_max_features)
     print("Best model", best_rf_model)
 
-    return best_n_estimators, best_max_features, best_rf_model
+    return best_n_estimators, best_max_features, best_rf_model, best_accuracy
+
+
+################ Naive Bayes without bigram nor features selection "Chi-square" #####################
+def naive_bayes(x, y, k_values):
+    # Create a pipeline with feature selection and Naive Bayes classifier
+    pipeline = Pipeline([
+        ('chi2', SelectKBest(chi2)),
+        ('naive_bayes', MultinomialNB())
+    ])
+
+    # Create a parameter grid with the k values
+    param_grid = {
+        'chi2__k': k_values
+    }
+
+    # Perform Grid Search with 10-fold cross-validation
+    grid_search = GridSearchCV(pipeline, param_grid=param_grid, cv=10, scoring='accuracy')
+
+    # Fit the Grid Search on the data
+    grid_search.fit(x, y)
+
+    print("CHI SQUARE")
+    # Print validation accuracy for each parameter combination
+    print("Validation Accuracy for Each Parameter Combination:")
+    for params, test_score in zip(grid_search.cv_results_['params'], grid_search.cv_results_['mean_test_score']):
+        print(f"Parameters: {params}, Validation Accuracy: {test_score:.4f}")
+
+    # Print the best parameters and corresponding accuracy score
+    print("Best Parameters: ", grid_search.best_params_)
+    print("Best Accuracy Score: ", grid_search.best_score_)
+    
+    return grid_search.best_params_, grid_search.best_score_
 
 
 
 
+## Setting up the variables for the best model
 best_overall_alpha = 0
 best_overall_lambda = 0
 best_overall_n_estimators = 0
+best_overall_naive = 0
 
-for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [True, False]):
+acc_logistic = 0
+acc_rf = 0
+acc_tree = 0
+acc_naive = 0
+
+# Define a range of k values to experiment with
+k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+param_grid_forest = {
+    'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
+    'max_features': ['sqrt', 'log2', None]  # Different options for max_features
+}
+
+param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 20)}
+
+lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
+
+# Set up the KFold cross-validation
+kf = KFold(n_splits=10, shuffle=True, random_state=42)
+
+# Creating a map that will be returned with the best models hyperparameters
+best_tree_model = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_alpha": 0, "best_accuracy": 0}
+best_logistic_model = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_lambda": 0, "best_accuracy": 0}
+best_random_forest = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_n_estimator": 0, "best_accuracy": 0, "best_max_features": 0}
+best_naive = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_k": 0, "best_accuracy": 0}
+
+for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [False,True]):
     
+    # Check if we are dropping a percentage of the terms
     if drop:
         doc_term_matrix_array_train = doc_term_matrix_array_train[:, (doc_term_matrix_array_train.sum(axis=0) >= drop_percent * doc_term_matrix_array_train.shape[0])]
         doc_term_matrix_array_train_pos = doc_term_matrix_array_train_pos[:, (doc_term_matrix_array_train_pos.sum(axis=0) >= drop_percent * doc_term_matrix_array_train_pos.shape[0])]
@@ -294,69 +353,67 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
     docTermMatrixTrain = pd.DataFrame(doc_term_matrix_array_train, columns=feature_names_train, index=filenamesTrain)
     docTermMatrixTrainPos = pd.DataFrame(doc_term_matrix_array_train_pos, columns=feature_names_train_pos, index=filenamesTrain)
 
+    # Checks if part of speech tagging is used
     if part_of_speech:
         doc_term_matrix_array_train = doc_term_matrix_array_train_pos
         doc_term_matrix_array_test = doc_term_matrix_array_test_pos
     else:
         doc_term_matrix_array_train = doc_term_matrix_array_train
         doc_term_matrix_array_test = doc_term_matrix_array_test
+    
+    # Set the labels
+    
     y = df_train['Label']
     x = doc_term_matrix_array_train
     
-    accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf)
+    accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf,lambda_values)
     print("best_lambda", current_best_lambda)
     print("best_accuracy", accuracy_logistic)
-    best_n_estimators, best_max_features, best_rf_model = random_forest_classification(x, y,kf)
+    best_n_estimators, best_max_features, best_rf_model, accuracy_forest = random_forest_classification(x, y,kf, param_grid_forest)
     print("best_n_estimators", best_n_estimators)
     print("best_max_features", best_max_features)
     print("best_rf_model", best_rf_model)
-    accuracy_trees, best_alpha = decision_tree_classification(x, y, kf)
+    accuracy_trees, best_alpha = decision_tree_classification(x, y, kf, param_grid_tree)
     print("best_alpha", best_alpha)
     print("accuracy_trees", accuracy_trees)
-    if accuracy_logistic > best_overall_lambda:
-        best_overall_lambda = accuracy_logistic
+    
+    best_k, best_accuracy_naive = naive_bayes(x, y, k_values)
+    
+    
+    if accuracy_logistic > acc_logistic:
+        acc_logistic = accuracy_logistic
         best_overall_alpha = current_best_lambda
-    if accuracy_trees > best_overall_alpha:
-        best_overall_alpha = accuracy_trees
-        best_overall_lambda = current_best_lambda
-    if best_n_estimators > best_overall_n_estimators:
+        best_logistic_model["drop"] = drop
+        best_logistic_model["drop_percent"] = drop_percent
+        best_logistic_model["part_of_speech"] = part_of_speech
+        best_logistic_model["best_lambda"] = current_best_lambda
+        best_logistic_model["best_accuracy"] = accuracy_logistic
+    if accuracy_trees > acc_tree:
+        acc_tree = accuracy_trees
+        best_overall_alpha = best_alpha
+        best_tree_model["drop"] = drop
+        best_tree_model["drop_percent"] = drop_percent
+        best_tree_model["part_of_speech"] = part_of_speech
+        best_tree_model["best_alpha"] = best_alpha
+        best_tree_model["best_accuracy"] = acc_tree
+    if accuracy_forest > acc_rf:
+        acc_rf = accuracy_forest
         best_overall_n_estimators = best_n_estimators
         best_overall_max_features = best_max_features
-
-
-
-
-################ Naive Bayes without bigram nor features selection "Chi-square" #####################
-# Create a pipeline with feature selection and Naive Bayes classifier
-pipeline = Pipeline([
-    ('chi2', SelectKBest(chi2)),
-    ('naive_bayes', MultinomialNB())
-])
-
-# Define a range of k values to experiment with
-k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
-# Create a parameter grid with the k values
-param_grid = {
-    'chi2__k': k_values
-}
-
-# Perform Grid Search with 10-fold cross-validation
-grid_search = GridSearchCV(pipeline, param_grid=param_grid, cv=10, scoring='accuracy')
-
-# Fit the Grid Search on the data
-grid_search.fit(x, y)
-
-print("CHI SQUARE")
-# Print validation accuracy for each parameter combination
-print("Validation Accuracy for Each Parameter Combination:")
-for params, test_score in zip(grid_search.cv_results_['params'], grid_search.cv_results_['mean_test_score']):
-    print(f"Parameters: {params}, Validation Accuracy: {test_score:.4f}")
-
-# Print the best parameters and corresponding accuracy score
-print("Best Parameters: ", grid_search.best_params_)
-print("Best Accuracy Score: ", grid_search.best_score_)
-
-
+        best_random_forest["drop"] = drop
+        best_random_forest["drop_percent"] = drop_percent
+        best_random_forest["part_of_speech"] = part_of_speech
+        best_random_forest["best_n_estimator"] = best_n_estimators
+        best_random_forest["best_accuracy"] = accuracy_forest
+        best_random_forest["best_max_features"] = best_max_features
+    if best_accuracy_naive > acc_naive:
+        acc_naive = best_accuracy_naive
+        best_naive["drop"] = drop
+        best_naive["drop_percent"] = drop_percent
+        best_naive["part_of_speech"] = part_of_speech
+        best_naive["best_k"] = best_k
+        best_naive["best_accuracy"] = best_accuracy_naive
+        
 
 
 #Train and test on the test set Random Forest

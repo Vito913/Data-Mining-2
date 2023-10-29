@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import string
-import time
 import nltk
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
@@ -20,11 +19,20 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import cross_val_score
 import numpy as np
 from sklearn.pipeline import Pipeline
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
 
-# nltk.download('punkt')
-# nltk.download('stopwords')
-# nltk.download('averaged_perceptron_tagger')
+def evaluate(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    acc = (cm[0, 0] + cm[1, 1]) / np.sum(cm)
+    prec = cm[0, 0] / (cm[0, 0] + cm[0, 1])
+    rec = cm[0, 0] / (cm[0, 0] + cm[1, 0])
+    return cm, acc, prec, rec
 
+
+
+'''
 # Checks if we are dropping a percentage of the terms
 drop = True
 # The amount of terms to drop
@@ -33,8 +41,8 @@ drop_percent = 0.0015
 part_of_speech = True
 # Checks if we are using stemming
 stemming = True
-
 onlyWords = False
+'''
 
 # Path to the data folder
 data_folder = 'data/op_spam_v1.4'
@@ -135,26 +143,27 @@ doc_strings_train_pos = [' '.join(review) for review in words_and_pos]
 doc_strings_test_pos = [' '.join(review) for review in words_and_pos_test]
 
 # Initialize the CountVectorizer
+
+#no pos, no bigram
 vectorizerTrain = CountVectorizer()
 doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
 
 vectorizerTest = CountVectorizer(vocabulary=vectorizerTrain.vocabulary_)
 doc_term_matrix_test = vectorizerTest.transform(doc_strings_test)
 
+#pos
 vectorizerTrainPos = CountVectorizer()
 doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
 
 vectorizerTestPos = CountVectorizer(vocabulary=vectorizerTrainPos.vocabulary_)
 doc_term_matrix_test_pos = vectorizerTestPos.transform(doc_strings_test_pos)
 
-
-
+#bigram
 vectorizedBigramTrain = CountVectorizer(ngram_range=(2, 2))
 doc_term_matrix_train_bigram = vectorizedBigramTrain.fit_transform(doc_strings_train)
 
 vectorizedBigramTest = CountVectorizer(vocabulary=vectorizedBigramTrain.vocabulary_)
 doc_term_matrix_test_bigram = vectorizedBigramTest.transform(doc_strings_test)
-
 
 # Convert the document-term matrix to an array
 doc_term_matrix_array_train = doc_term_matrix_train.toarray()
@@ -165,24 +174,7 @@ doc_term_matrix_array_train_bigram = doc_term_matrix_train_bigram.toarray()
 doc_term_matrix_array_test_bigram = doc_term_matrix_test_bigram.toarray()
 
 
-'''
-#to test if words in doc makes sense
-# Select the specific row by its index (document name) 
-# specific_row = docTermMatrixTest.loc['d_allegro_1.txt']
-# Find non-zero elements and their column names for the specified row
-non_zero_elements = specific_row[specific_row != 0]
-# Print non-zero elements and their column names for the specified row
-for column_name, value in non_zero_elements.items():
-    print(f'Column Name: {column_name}, Value: {value}')
-'''
-
-
-# assigning two variables for the datapoints and the labels for cross-validation
-
 ######################## LOGISTIC REGRESSION ############################
-
-# split the data into 10 folds and every time train on 9 and test on 1
-
 
 def logistic_regression_classification(x, y, kf, lambda_values):
     # Define the range of lambda values to try
@@ -197,9 +189,6 @@ def logistic_regression_classification(x, y, kf, lambda_values):
     # Get the best hyperparameter
     best_lambda = grid_search.best_params_['C']
 
-    # Get the best model
-    best_model = grid_search.best_estimator_
-
     # Get the best cross-validated score
     best_accuracy = grid_search.best_score_
 
@@ -208,64 +197,32 @@ def logistic_regression_classification(x, y, kf, lambda_values):
 ########### CLASSIFICATION TREES #####################
 
 def decision_tree_classification(x, y, kf, param_grid):
+    clf = tree.DecisionTreeClassifier()
+    grid_search = GridSearchCV(estimator=clf, param_grid=param_grid, cv=kf, n_jobs=-1)
 
-    best_alpha = 0
-    best_accuracy = 0
-
-    for train_index, val_index in kf.split(x):
-
-        X_train, X_val = x[train_index], x[val_index]
-        y_train, y_val = y[train_index], y[val_index]
-
-        clf = tree.DecisionTreeClassifier()
-        grid_search = GridSearchCV(clf, param_grid=param_grid)
-        grid_search.fit(X_train, y_train)
-        best_clf = grid_search.best_estimator_
-        best_clf.fit(X_train, y_train)
-        y_pred = best_clf.predict(X_val)
-        accuracy = best_clf.score(X_val, y_val)
-        print("accuracy:", accuracy)
-
-        # Active selection of best hyperparameters
-        param_grid["ccp_alpha"] = np.linspace(max(0, grid_search.best_params_['ccp_alpha']-0.02), 
-                                               min(0.1, grid_search.best_params_['ccp_alpha']+0.02), 20)
-
-        if accuracy > best_accuracy:
-            best_accuracy = accuracy
-            best_alpha = grid_search.best_params_['ccp_alpha']
+    #search for best params config using 10-fold cross validation
+    #for every parameters combo, model is trained (on 9 folds) and tested (on 1 fold) 10 times; val. accuracy is mean of all 10 trials per param combo!
+    grid_search.fit(x, y)
+    best_alpha= grid_search.best_params_['ccp_alpha']
+    best_tree_model = grid_search.best_estimator_
+    best_accuracy = grid_search.best_score_
 
     return best_accuracy, best_alpha
+
 ################ RANDOM FOREST #####################
 
 def random_forest_classification(x: pd.DataFrame, y: pd.DataFrame,kf: KFold, param_grid: dict) -> (float, str, RandomForestClassifier):
-
-
     rf = RandomForestClassifier(random_state=42)
     grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=kf, n_jobs=-1)
 
     #search for best params config using 10-fold cross validation
     #for every parameters combo, model is trained (on 9 folds) and tested (on 1 fold) 10 times; val. accuracy is mean of all 10 trials per param combo!
-    start_time = time.time()
-    history = grid_search.fit(x, y)
-    end_time = time.time()
-    print("time for greed search", start_time - end_time)
-
-    # Print validation accuracy for each parameter combination
-    print("Validation Accuracy for Each Parameter Combination:")
-    for params, test_score in zip(grid_search.cv_results_['params'], grid_search.cv_results_['mean_test_score']):
-        print(f"Parameters: {params}, Validation Accuracy: {test_score:.4f}")
-
+    grid_search.fit(x, y)
     #go on with the best config!
     best_n_estimators = grid_search.best_params_['n_estimators']
     best_max_features = grid_search.best_params_['max_features']
-    best_rf_model = grid_search.best_estimator_
     best_accuracy = grid_search.best_score_
-    #access best params
-    print("Best number of trees:", best_n_estimators)
-    print("Best max features:", best_max_features)
-    print("Best model", best_rf_model)
-
-    return best_n_estimators, best_max_features, best_rf_model, best_accuracy
+    return  best_accuracy, best_n_estimators, best_max_features
 
 
 ################ Naive Bayes without bigram nor features selection "Chi-square" #####################
@@ -287,42 +244,53 @@ def naive_bayes(x, y, k_values):
     # Fit the Grid Search on the data
     grid_search.fit(x, y)
 
-    print("CHI SQUARE")
-    # Print validation accuracy for each parameter combination
-    print("Validation Accuracy for Each Parameter Combination:")
-    for params, test_score in zip(grid_search.cv_results_['params'], grid_search.cv_results_['mean_test_score']):
-        print(f"Parameters: {params}, Validation Accuracy: {test_score:.4f}")
-
     # Print the best parameters and corresponding accuracy score
     print("Best Parameters: ", grid_search.best_params_)
     print("Best Accuracy Score: ", grid_search.best_score_)
     
-    return grid_search.best_params_, grid_search.best_score_
+    return grid_search.best_score_, grid_search.best_params_
 
 
 
 
-## Setting up the variables for the best model
+## Setting up the variables for the best model among all configurations (i.e. drop y/n, unigram/bigram, pos..)
 best_overall_alpha = 0
 best_overall_lambda = 0
 best_overall_n_estimators = 0
 best_overall_naive = 0
 
+##Setting up the accuracies for the best model among all configurations (i.e. drop y/n, unigram/bigram, pos..)
 acc_logistic = 0
 acc_rf = 0
 acc_tree = 0
 acc_naive = 0
 
-# Define a range of k values to experiment with
-k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+#SEARCH PARAMS
+# Define values to experiment with (labda for logreg)
+lambda_values = {'C': [1000.0, 2000.0]}
+# Define values to experiment with (n of trees and max features for rf)
+param_grid_forest = {
+    'n_estimators': [5, 10],  # List of different numbers of trees
+    'max_features': ['sqrt']  # Different options for max_features
+}
+# Define values to experiment with (alpha for tree)
+param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 1)}
+# Define values to experiment with (k feature selection for naive bayes)
+k_values = [1000, 1200]
+
+'''
+# Define values to experiment with (labda for logreg)
+lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
+# Define values to experiment with (n of trees and max features for rf)
 param_grid_forest = {
     'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
     'max_features': ['sqrt', 'log2', None]  # Different options for max_features
 }
-
+# Define values to experiment with (alpha for tree)
 param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 20)}
-
-lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
+# Define values to experiment with (k feature selection for naive bayes)
+k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+'''
 
 # Set up the KFold cross-validation
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
@@ -333,8 +301,10 @@ best_logistic_model = {"drop": True, "drop_percent": 0, "part_of_speech": True, 
 best_random_forest = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_n_estimator": 0, "best_accuracy": 0, "best_max_features": 0}
 best_naive = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_k": 0, "best_accuracy": 0}
 
-for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [False,True]):
+#for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [False,True]):
+for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002], [False,True]):   
     
+    print("params now:", drop, drop_percent, part_of_speech)
     # Check if we are dropping a percentage of the terms
     if drop:
         doc_term_matrix_array_train = doc_term_matrix_array_train[:, (doc_term_matrix_array_train.sum(axis=0) >= drop_percent * doc_term_matrix_array_train.shape[0])]
@@ -345,6 +315,13 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
     feature_names_train = vectorizerTrain.get_feature_names_out()
     feature_names_train_pos = vectorizerTrainPos.get_feature_names_out()
     
+
+    
+    print("len feat names", len(feature_names_train))
+    print("test matrix", doc_term_matrix_array_test.shape)
+    print("test matrix pos", doc_term_matrix_array_train_pos.shape)
+
+
     # Ensure that the test matrix only includes words from the training matrix
     docTermMatrixTest = pd.DataFrame(doc_term_matrix_array_test, columns=feature_names_train, index=filenamesTest)
     docTermMatrixTestPos = pd.DataFrame(doc_term_matrix_array_test_pos, columns=feature_names_train_pos, index=filenamesTest)
@@ -362,24 +339,20 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
         doc_term_matrix_array_test = doc_term_matrix_array_test
     
     # Set the labels
-    
-    y = df_train['Label']
     x = doc_term_matrix_array_train
+    y = df_train['Label']
     
+    #DO CV WITH ALL 4 MODELS BY CALLING THEIR FUNCTIONS
     accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf,lambda_values)
-    print("best_lambda", current_best_lambda)
-    print("best_accuracy", accuracy_logistic)
-    best_n_estimators, best_max_features, best_rf_model, accuracy_forest = random_forest_classification(x, y,kf, param_grid_forest)
-    print("best_n_estimators", best_n_estimators)
-    print("best_max_features", best_max_features)
-    print("best_rf_model", best_rf_model)
+    print("logistic regression done")
+    accuracy_forest, best_n_estimators, best_max_features = random_forest_classification(x, y,kf, param_grid_forest)
+    print("random forest done")
     accuracy_trees, best_alpha = decision_tree_classification(x, y, kf, param_grid_tree)
-    print("best_alpha", best_alpha)
-    print("accuracy_trees", accuracy_trees)
-    
-    best_k, best_accuracy_naive = naive_bayes(x, y, k_values)
-    
-    
+    print("single tree done")
+    best_accuracy_naive, best_k  = naive_bayes(x, y, k_values)
+    print("naive bayes done")
+    #update best overall params and fill in dictionary with current parameters
+    #LOGREG
     if accuracy_logistic > acc_logistic:
         acc_logistic = accuracy_logistic
         best_overall_alpha = current_best_lambda
@@ -388,6 +361,7 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
         best_logistic_model["part_of_speech"] = part_of_speech
         best_logistic_model["best_lambda"] = current_best_lambda
         best_logistic_model["best_accuracy"] = accuracy_logistic
+    #TREE
     if accuracy_trees > acc_tree:
         acc_tree = accuracy_trees
         best_overall_alpha = best_alpha
@@ -396,6 +370,7 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
         best_tree_model["part_of_speech"] = part_of_speech
         best_tree_model["best_alpha"] = best_alpha
         best_tree_model["best_accuracy"] = acc_tree
+    #FOREST
     if accuracy_forest > acc_rf:
         acc_rf = accuracy_forest
         best_overall_n_estimators = best_n_estimators
@@ -406,6 +381,7 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
         best_random_forest["best_n_estimator"] = best_n_estimators
         best_random_forest["best_accuracy"] = accuracy_forest
         best_random_forest["best_max_features"] = best_max_features
+    #NAIVE BAYES
     if best_accuracy_naive > acc_naive:
         acc_naive = best_accuracy_naive
         best_naive["drop"] = drop
@@ -413,25 +389,65 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002,
         best_naive["part_of_speech"] = part_of_speech
         best_naive["best_k"] = best_k
         best_naive["best_accuracy"] = best_accuracy_naive
-        
+
+
+#PRINT BEST DICTIONARY (best param config) PER MODEL
+print()
+print("decision tree results", best_tree_model)
+print("logistic regression results", best_logistic_model)
+print("random forest results", best_random_forest)
+print("naive bayes results", best_naive)
+print()
+
+
+            
+
+
+#TRAIN AND TEST BEST MODELS AFTER CV
+
+#Train and test on the test set Random Forest
+tree2 = RandomForestClassifier(ccp_alpha=best_overall_alpha).fit(doc_term_matrix_array_train, df_train['Label'])
+train_accuracy = tree2.score(doc_term_matrix_array_train, df_train['Label'])
+print("best params train accuracy TREE", train_accuracy)
+#predict on test set
+y_pred = tree2.predict(doc_term_matrix_array_test)
+test_accuracy = accuracy_score(df_test['Label'], y_pred)
+print("best params test accuracy TREE", test_accuracy )
 
 
 #Train and test on the test set Random Forest
-
 rf2 = RandomForestClassifier(n_estimators = best_overall_n_estimators, max_features = best_overall_max_features).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
-print("best params train accuracy", train_accuracy)
+print("best params train accuracy RANDOM FOREST", train_accuracy)
 #predict on test set
 y_pred = rf2.predict(doc_term_matrix_array_test)
 test_accuracy = accuracy_score(df_test['Label'], y_pred)
-print("best params test accuracy random random forest", test_accuracy )
+print("best params test accuracy RANDOM FOREST", test_accuracy )
+
 
 #Train and test on the test set Logistic Regression 
 logreg2= LogisticRegression(penalty='l1', C=best_overall_lambda, solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy_logreg = logreg2.score(doc_term_matrix_array_train, df_train['Label'])
-print("best params train accuracy", train_accuracy_logreg)
+print("best params train accuracy LOGREG", train_accuracy_logreg)
 #predict on test set
 y_pred_logreg = logreg2.predict(doc_term_matrix_array_test)
 test_accuracy_logreg= accuracy_score(df_test['Label'], y_pred_logreg)
-print("best params test accuracy logreg", test_accuracy_logreg)
+print("best params test accuracy LOGREG", test_accuracy_logreg)
+
+
+#modify train and test matrices based on k features selected during crossval
+selector = SelectKBest(chi2, k=best_overall_naive)
+X_train_selected = selector.fit_transform(doc_term_matrix_array_train, df_train['Label'])
+selected_feature_indices = selector.get_support(indices=True)
+X_test_selected = doc_term_matrix_array_test[:, selected_feature_indices]
+print("Do X train and X test for NAIVE have same selected features?", X_train_selected.shape[1]==X_test_selected.shape[1])
+#Train and test on the test set Naive Bayes
+mnb2 = MultinomialNB().fit(X_train_selected , df_train['Label'])
+train_accuracy_logreg = logreg2.score(X_train_selected , df_train['Label'])
+print("best params train accuracy NAIVE BAYES", train_accuracy_logreg)
+#predict on test set
+y_pred_logreg = logreg2.predict(X_test_selected)
+test_accuracy_logreg= accuracy_score(df_test['Label'], y_pred_logreg)
+print("best params test accuracy NAIVE BAYES", test_accuracy_logreg)
+
 

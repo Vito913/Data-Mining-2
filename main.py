@@ -21,14 +21,14 @@ from sklearn.model_selection import cross_val_score
 import numpy as np
 from sklearn.pipeline import Pipeline
 
-#nltk.download('punkt')
-#nltk.download('stopwords')
-#nltk.download('averaged_perceptron_tagger')
+# nltk.download('punkt')
+# nltk.download('stopwords')
+# nltk.download('averaged_perceptron_tagger')
 
 # Checks if we are dropping a percentage of the terms
 drop = True
 # The amount of terms to drop
-drop_percent = 0.0015 
+drop_percent = 0.0015
 # Checks if we are using part of speech tagging
 part_of_speech = True
 # Checks if we are using stemming
@@ -82,7 +82,7 @@ df_test = pd.DataFrame({'Review Text': fold_5_files, 'Label': labels_5})
 def remove_unnecessary(row):
     # Remove numbers
     row = ''.join([i for i in row if not i.isdigit()])
-    
+
     # Remove punctuations
     row = row.translate(str.maketrans('', '', string.punctuation))
     
@@ -93,7 +93,7 @@ def remove_unnecessary(row):
     # lowercase
     row = row.lower()
     
-    # Remove unnneccesary whitespaces
+    # Remove unnecessary whitespaces
     row = row.strip()
     
     return row
@@ -121,58 +121,50 @@ def pos_tagging(row):
 df_train['Review Text'] = df_train['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
 df_test['Review Text'] = df_test['Review Text'].apply(remove_unnecessary).apply(stemming).apply(pos_tagging)
 
-##create document-term matrix for train data -> rows = files and columns = terms
-# Extract words without POS from the 'Review Text' column
 
-# Extract words without POS from the 'Review Text' column
+# Create a list of lists containing the words for each review
 words = [[' '.join(word for word, _ in review)] for review in df_train['Review Text']]
 words_test = [[' '.join(word for word, _ in review)] for review in df_test['Review Text']]
-
-# Extract words with POS from the 'Review Text' column
 words_and_pos = [[' '.join(f"{word}_{pos}" for word, pos in review)] for review in df_train['Review Text']]
 words_and_pos_test = [[' '.join(f"{word}_{pos}" for word, pos in review)] for review in df_test['Review Text']]
 
-# Get all words from the training and test data
-all_words_train = list(chain.from_iterable(words))
-all_words_test = list(chain.from_iterable(words_test))
-
-# Convert the list of words into space-separated strings for each review
+# Create document-term matrix for train data -> rows = files and columns = terms
 doc_strings_train = [' '.join(review) for review in words]
 doc_strings_test = [' '.join(review) for review in words_test]
-
-# Convert the list of words with POS into space-separated strings for each review
 doc_strings_train_pos = [' '.join(review) for review in words_and_pos]
 doc_strings_test_pos = [' '.join(review) for review in words_and_pos_test]
 
 # Initialize the CountVectorizer
 vectorizerTrain = CountVectorizer()
-# Transform the documents into a document-term co-occurrence matrix
-doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
-# Initialize the CountVectorizer with the vocabulary from the training data
 vectorizerTest = CountVectorizer(vocabulary=vectorizerTrain.vocabulary_)
-# Transform the test documents into a document-term co-occurrence matrix using the same vocabulary
-doc_term_matrix_test = vectorizerTest.transform(doc_strings_test)
-
-# Initialize the CountVectorizer for POS tags
 vectorizerTrainPos = CountVectorizer()
-# Transform the documents into a document-term co-occurrence matrix
-doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
-# Initialize the CountVectorizer with the vocabulary from the training data
 vectorizerTestPos = CountVectorizer(vocabulary=vectorizerTrainPos.vocabulary_)
-# Transform the test documents into a document-term co-occurrence matrix using the same vocabulary
+vectorizedBigramTrain = CountVectorizer(ngram_range=(2, 2))
+vectorizedBigramTest = CountVectorizer(vocabulary=vectorizedBigramTrain.vocabulary_)
+
+
+# Create the document-term matrix for train and test data
+doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
+doc_term_matrix_test = vectorizerTest.transform(doc_strings_test)
+doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
 doc_term_matrix_test_pos = vectorizerTestPos.transform(doc_strings_test_pos)
+doc_term_matrix_train_bigram = vectorizedBigramTrain.fit_transform(doc_strings_train)
+doc_term_matrix_test_bigram = vectorizedBigramTest.transform(doc_strings_test)
+
 
 # Convert the document-term matrix to an array
 doc_term_matrix_array_train = doc_term_matrix_train.toarray()
 doc_term_matrix_array_test = doc_term_matrix_test.toarray()
 doc_term_matrix_array_train_pos = doc_term_matrix_train_pos.toarray()
 doc_term_matrix_array_test_pos = doc_term_matrix_test_pos.toarray()
+doc_term_matrix_array_train_bigram = doc_term_matrix_train_bigram.toarray()
+doc_term_matrix_array_test_bigram = doc_term_matrix_test_bigram.toarray()
 
 
 '''
 #to test if words in doc makes sense
-# Select the specific row by its index (document name)
-specific_row = docTermMatrixTest.loc['d_allegro_1.txt']
+# Select the specific row by its index (document name) 
+# specific_row = docTermMatrixTest.loc['d_allegro_1.txt']
 # Find non-zero elements and their column names for the specified row
 non_zero_elements = specific_row[specific_row != 0]
 # Print non-zero elements and their column names for the specified row

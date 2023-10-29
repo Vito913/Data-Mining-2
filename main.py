@@ -237,20 +237,17 @@ def naive_bayes(x, y, k_values):
 
     # Fit the Grid Search on the data
     grid_search.fit(x, y)
-
-    # Print the best parameters and corresponding accuracy score
-    print("Best Parameters: ", grid_search.best_params_)
-    print("Best Accuracy Score: ", grid_search.best_score_)
+    finalK = list(grid_search.best_params_.values())[0]
     
-    return grid_search.best_score_, grid_search.best_params_
+    return grid_search.best_score_, finalK
 
 
 
 
 ## Setting up the variables for the best model among all configurations (i.e. drop y/n, unigram/bigram, pos..)
-best_overall_alpha = 0
-best_overall_lambda = 0
-best_overall_n_estimators = 0
+best_overall_alpha = 0.0
+best_overall_lambda = 0.0
+best_overall_n_estimators = 0.0
 best_overall_naive = 0
 
 ##Setting up the accuracies for the best model among all configurations (i.e. drop y/n, unigram/bigram, pos..)
@@ -310,21 +307,18 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
 
     
     print("params now:", drop, drop_percent, part_of_speech)
-    
-    # Check if we are dropping a percentage of the terms
-    if drop:
-        current_matrix_train = current_matrix_train[:, (current_matrix_train.sum(axis=0) >= drop_percent * current_matrix_train.shape[0])]
-    #  Update the filenamesTrain list to match the number of rows in the modified doc_term_matrix_array_train
-
-    # Get the feature names (words) corresponding to the columns of the matrix
 
     if part_of_speech:
         feature_names_train = vectorizerTrainPos.get_feature_names_out()
     else:
         feature_names_train = vectorizerTrain.get_feature_names_out()
-        
-    # # Ensure that the test matrix only includes words from the training matrix
-    docTermMatrixTest = pd.DataFrame(current_matrix_test, columns=feature_names_train, index=filenamesTest)
+
+    if drop:
+        selected_columns = np.where(current_matrix_train.sum(axis=0) >= drop_percent * current_matrix_train.shape[0])[0]
+        #current_matrix_train = current_matrix_train[:, selected_columns]
+        current_matrix_train = current_matrix_train[:, (current_matrix_train.sum(axis=0) >= drop_percent * current_matrix_train.shape[0])]
+        feature_names_train = [feature_names_train[idx] for idx in selected_columns]  
+
 
     ## Check which words happen less than drop_percent times and remove them from the matrix
     docTermMatrixTrain = pd.DataFrame(current_matrix_train, columns=feature_names_train, index=filenamesTrain)
@@ -345,7 +339,7 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
     #LOGREG
     if accuracy_logistic > acc_logistic:
         acc_logistic = accuracy_logistic
-        best_overall_alpha = current_best_lambda
+        best_overall_lambda = current_best_lambda
         best_logistic_model["drop"] = drop
         best_logistic_model["drop_percent"] = drop_percent
         best_logistic_model["part_of_speech"] = part_of_speech
@@ -358,7 +352,7 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
         best_tree_model["drop"] = drop
         best_tree_model["drop_percent"] = drop_percent
         best_tree_model["part_of_speech"] = part_of_speech
-        best_tree_model["best_alpha"] = best_alpha
+        best_tree_model["best_alpha"] = best_overall_alpha
         best_tree_model["best_accuracy"] = acc_tree
     #FOREST
     if accuracy_forest > acc_rf:
@@ -368,9 +362,9 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
         best_random_forest["drop"] = drop
         best_random_forest["drop_percent"] = drop_percent
         best_random_forest["part_of_speech"] = part_of_speech
-        best_random_forest["best_n_estimator"] = best_n_estimators
         best_random_forest["best_accuracy"] = accuracy_forest
         best_random_forest["best_max_features"] = best_max_features
+        best_random_forest["best_n_estimator"] = best_n_estimators
     #NAIVE BAYES
     if best_accuracy_naive > acc_naive:
         acc_naive = best_accuracy_naive
@@ -394,7 +388,7 @@ print("naive bayes results", best_naive)
 #TRAIN AND TEST BEST MODELS AFTER CV
 
 #Train and test on the test set Random Forest
-tree2 = RandomForestClassifier(ccp_alpha=best_overall_alpha).fit(doc_term_matrix_array_train, df_train['Label'])
+tree2 = RandomForestClassifier(ccp_alpha=best_tree_model["best_alpha"] ).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy = tree2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy TREE", train_accuracy)
 #predict on test set
@@ -403,8 +397,10 @@ test_accuracy = accuracy_score(df_test['Label'], y_pred)
 print("best params test accuracy TREE", test_accuracy )
 
 
+
+
 #Train and test on the test set Random Forest
-rf2 = RandomForestClassifier(n_estimators = best_overall_n_estimators, max_features = best_overall_max_features).fit(doc_term_matrix_array_train, df_train['Label'])
+rf2 = RandomForestClassifier(n_estimators = best_random_forest["best_n_estimator"] , max_features = best_random_forest["best_max_features"]).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy RANDOM FOREST", train_accuracy)
 #predict on test set
@@ -414,7 +410,7 @@ print("best params test accuracy RANDOM FOREST", test_accuracy )
 
 
 #Train and test on the test set Logistic Regression 
-logreg2= LogisticRegression(penalty='l1', C=best_overall_lambda, solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
+logreg2= LogisticRegression(penalty='l1', C= best_logistic_model["best_lambda"] , solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy_logreg = logreg2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy LOGREG", train_accuracy_logreg)
 #predict on test set
@@ -424,18 +420,17 @@ print("best params test accuracy LOGREG", test_accuracy_logreg)
 
 
 #modify train and test matrices based on k features selected during crossval
-selector = SelectKBest(chi2, k=best_overall_naive)
+selector = SelectKBest(chi2, k=best_naive["best_k"])
 X_train_selected = selector.fit_transform(doc_term_matrix_array_train, df_train['Label'])
 selected_feature_indices = selector.get_support(indices=True)
 X_test_selected = doc_term_matrix_array_test[:, selected_feature_indices]
-print("Do X train and X test for NAIVE have same selected features?", X_train_selected.shape[1]==X_test_selected.shape[1])
 #Train and test on the test set Naive Bayes
 mnb2 = MultinomialNB().fit(X_train_selected , df_train['Label'])
-train_accuracy_logreg = logreg2.score(X_train_selected , df_train['Label'])
-print("best params train accuracy NAIVE BAYES", train_accuracy_logreg)
+train_accuracy_mnb2= mnb2.score(X_train_selected , df_train['Label'])
+print("best params train accuracy NAIVE BAYES", train_accuracy_mnb2)
 #predict on test set
-y_pred_logreg = logreg2.predict(X_test_selected)
-test_accuracy_logreg= accuracy_score(df_test['Label'], y_pred_logreg)
-print("best params test accuracy NAIVE BAYES", test_accuracy_logreg)
+y_pred_mnb2 = mnb2.predict(X_test_selected)
+test_accuracy_mnb2 = accuracy_score(df_test['Label'], y_pred_mnb2)
+print("best params test accuracy NAIVE BAYES", test_accuracy_mnb2)
 
 

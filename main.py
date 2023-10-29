@@ -303,14 +303,10 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
     if part_of_speech:
         current_matrix_train = doc_term_matrix_array_train_pos
         current_matrix_test = doc_term_matrix_array_test_pos
-        feature_names_train = vectorizerTrainPos.get_feature_names_out()
-    
         
     else:
         current_matrix_train = doc_term_matrix_array_train
         current_matrix_test = doc_term_matrix_array_test
-        feature_names_train = vectorizerTrain.get_feature_names_out()
-    
 
     
     print("params now:", drop, drop_percent, part_of_speech)
@@ -322,11 +318,11 @@ for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002]
 
     # Get the feature names (words) corresponding to the columns of the matrix
 
-
-    print("len feat names", len(feature_names_train))
-    print("test matrix", doc_term_matrix_array_test.shape)
-
-
+    if part_of_speech:
+        feature_names_train = vectorizerTrainPos.get_feature_names_out()
+    else:
+        feature_names_train = vectorizerTrain.get_feature_names_out()
+        
     # # Ensure that the test matrix only includes words from the training matrix
     docTermMatrixTest = pd.DataFrame(current_matrix_test, columns=feature_names_train, index=filenamesTest)
 

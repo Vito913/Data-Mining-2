@@ -136,28 +136,21 @@ doc_strings_test_pos = [' '.join(review) for review in words_and_pos_test]
 
 # Initialize the CountVectorizer
 vectorizerTrain = CountVectorizer()
-
 doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
 
-
 vectorizerTest = CountVectorizer(vocabulary=vectorizerTrain.vocabulary_)
-
 doc_term_matrix_test = vectorizerTest.transform(doc_strings_test)
 
 vectorizerTrainPos = CountVectorizer()
-# Create the document-term matrix for train and test data
 doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
+
 vectorizerTestPos = CountVectorizer(vocabulary=vectorizerTrainPos.vocabulary_)
-
-
 doc_term_matrix_test_pos = vectorizerTestPos.transform(doc_strings_test_pos)
 
 vectorizedBigramTrain = CountVectorizer(ngram_range=(2, 2))
-
 doc_term_matrix_train_bigram = vectorizedBigramTrain.fit_transform(doc_strings_train)
 
 vectorizedBigramTest = CountVectorizer(vocabulary=vectorizedBigramTrain.vocabulary_)
-
 doc_term_matrix_test_bigram = vectorizedBigramTest.transform(doc_strings_test)
 
 

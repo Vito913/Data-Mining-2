@@ -147,8 +147,7 @@ doc_strings_test_pos = [' '.join(review) for review in words_and_pos_test]
 # Initialize the CountVectorizer
 vectorizerTrain = CountVectorizer()
 vectorizerTrainPos = CountVectorizer()
-vectorizedBigramTrain = CountVectorizer(ngram_range=(2, 2))
-
+vectorizedBigramTrain = CountVectorizer(ngram_range=(1, 2))
 # Create document-term matrix for train data -> rows = files and columns = terms
 doc_term_matrix_train = vectorizerTrain.fit_transform(doc_strings_train)
 doc_term_matrix_train_pos = vectorizerTrainPos.fit_transform(doc_strings_train_pos)
@@ -287,101 +286,111 @@ k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 500
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
 # Creating a map that will be returned with the best models hyperparameters
-best_tree_model = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_alpha": 0, "best_accuracy": 0}
-best_logistic_model = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_lambda": 0, "best_accuracy": 0}
-best_random_forest = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_n_estimator": 0, "best_accuracy": 0, "best_max_features": 0}
-best_naive = {"drop": True, "drop_percent": 0, "part_of_speech": True, "best_k": 0, "best_accuracy": 0}
+best_tree_model = {"drop_percent": 0, "part_of_speech": True, "best_alpha": 0, "best_accuracy": 0, "bigrams": False}
+best_logistic_model = {"drop_percent": 0, "part_of_speech": True, "best_lambda": 0, "best_accuracy": 0,"bigrams": False}
+best_random_forest = {"drop_percent": 0, "part_of_speech": True, "best_n_estimator": 0, "best_accuracy": 0, "best_max_features": 0,"bigrams": False}
+best_naive = {"drop_percent": 0, "part_of_speech": True, "best_k": 0, "best_accuracy": 0, "bigram": False}
 
-#for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [False,True]):
-for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002], [False,True]):
-    
-
-    # Checks if part of speech tagging is used
-    if part_of_speech:
-        current_matrix_train = doc_term_matrix_array_train_pos
-        current_matrix_test = doc_term_matrix_array_test_pos
+for bigrams in (False, True):
+    print("bigram", bigrams)
+    #for drop, drop_percent, part_of_speech, in product([False,True], [0.0015, 0.002, 0.0025, 0.003], [False,True]):
+    for drop_percent, part_of_speech in product([0.0 ,0.0012, 0.0015 , 0.002, 0.0025], [False,True]):
         
-    else:
-        current_matrix_train = doc_term_matrix_array_train
-        current_matrix_test = doc_term_matrix_array_test
 
-    
-    print("params now:", drop, drop_percent, part_of_speech)
+        # Checks if part of speech tagging is used
+        if part_of_speech:
+            current_matrix_train = doc_term_matrix_array_train_pos
+            current_matrix_test = doc_term_matrix_array_test_pos
+            
+        elif bigrams:
+            current_matrix_train = doc_term_matrix_array_train_bigram
+            current_matrix_test = doc_term_matrix_array_test_bigram
+        else:
+            current_matrix_train = doc_term_matrix_array_train
+            current_matrix_test = doc_term_matrix_array_test
+        
+        if part_of_speech:
+            feature_names_train = vectorizerTrainPos.get_feature_names_out()
+        elif bigrams:
+            feature_names_train = vectorizedBigramTrain.get_feature_names_out()
+        else:
+            feature_names_train = vectorizerTrain.get_feature_names_out()
 
-    if part_of_speech:
-        feature_names_train = vectorizerTrainPos.get_feature_names_out()
-    else:
-        feature_names_train = vectorizerTrain.get_feature_names_out()
+        if bigrams:
+            used_drop = drop_percent * 10
+        else:
+            used_drop = drop_percent
 
-    if drop:
-        selected_columns = np.where(current_matrix_train.sum(axis=0) >= drop_percent * current_matrix_train.shape[0])[0]
+        selected_columns = np.where(current_matrix_train.sum(axis=0) >= used_drop* current_matrix_train.shape[0])[0]
         #current_matrix_train = current_matrix_train[:, selected_columns]
-        current_matrix_train = current_matrix_train[:, (current_matrix_train.sum(axis=0) >= drop_percent * current_matrix_train.shape[0])]
+        current_matrix_train = current_matrix_train[:, (current_matrix_train.sum(axis=0) >= used_drop * current_matrix_train.shape[0])]
         feature_names_train = [feature_names_train[idx] for idx in selected_columns]  
 
 
-    ## Check which words happen less than drop_percent times and remove them from the matrix
-    docTermMatrixTrain = pd.DataFrame(current_matrix_train, columns=feature_names_train, index=filenamesTrain)
-    # Set the labels
-    x = doc_term_matrix_array_train
-    y = df_train['Label']
+        ## Check which words happen less than drop_percent times and remove them from the matrix
+        docTermMatrixTrain = pd.DataFrame(current_matrix_train, columns=feature_names_train, index=filenamesTrain)
+        # Set the labels
+        x = doc_term_matrix_array_train
+        y = df_train['Label']
+        
+        #DO CV WITH ALL 4 MODELS BY CALLING THEIR FUNCTIONS
+        accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf,lambda_values)
+        print("logistic regression done")
+        accuracy_forest, best_n_estimators, best_max_features = random_forest_classification(x, y,kf, param_grid_forest)
+        print("random forest done")
+        accuracy_trees, best_alpha = decision_tree_classification(x, y, kf, param_grid_tree)
+        print("single tree done")
+        best_accuracy_naive, best_k  = naive_bayes(x, y, k_values)
+        print("naive bayes done")
+        #update best overall params and fill in dictionary with current parameters
+        #LOGREG
+        if accuracy_logistic > acc_logistic:
+            acc_logistic = accuracy_logistic
+            best_overall_lambda = current_best_lambda
+            best_logistic_model["bigrams"] = bigrams
+            best_logistic_model["drop_percent"] = drop_percent
+            best_logistic_model["part_of_speech"] = part_of_speech
+            best_logistic_model["best_lambda"] = current_best_lambda
+            best_logistic_model["best_accuracy"] = accuracy_logistic
+        #TREE
+        if accuracy_trees > acc_tree:
+            acc_tree = accuracy_trees
+            best_overall_alpha = best_alpha
+            best_tree_model["bigrams"] = bigrams
+            best_tree_model["drop_percent"] = drop_percent
+            best_tree_model["part_of_speech"] = part_of_speech
+            best_tree_model["best_alpha"] = best_overall_alpha
+            best_tree_model["best_accuracy"] = acc_tree
+        #FOREST
+        if accuracy_forest > acc_rf:
+            acc_rf = accuracy_forest
+            best_overall_n_estimators = best_n_estimators
+            best_overall_max_features = best_max_features
+            best_random_forest["bigrams"] = bigrams
+            best_random_forest["drop_percent"] = drop_percent
+            best_random_forest["part_of_speech"] = part_of_speech
+            best_random_forest["best_accuracy"] = accuracy_forest
+            best_random_forest["best_max_features"] = best_max_features
+            best_random_forest["best_n_estimator"] = best_n_estimators
+        #NAIVE BAYES
+        if best_accuracy_naive > acc_naive:
+            acc_naive = best_accuracy_naive
+            best_naive["bigram"] = bigrams
+            best_naive["drop_percent"] = drop_percent
+            best_naive["part_of_speech"] = part_of_speech
+            best_naive["best_k"] = best_k
+            best_naive["best_accuracy"] = best_accuracy_naive
     
-    #DO CV WITH ALL 4 MODELS BY CALLING THEIR FUNCTIONS
-    accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf,lambda_values)
-    print("logistic regression done")
-    accuracy_forest, best_n_estimators, best_max_features = random_forest_classification(x, y,kf, param_grid_forest)
-    print("random forest done")
-    accuracy_trees, best_alpha = decision_tree_classification(x, y, kf, param_grid_tree)
-    print("single tree done")
-    best_accuracy_naive, best_k  = naive_bayes(x, y, k_values)
-    print("naive bayes done")
-    #update best overall params and fill in dictionary with current parameters
-    #LOGREG
-    if accuracy_logistic > acc_logistic:
-        acc_logistic = accuracy_logistic
-        best_overall_lambda = current_best_lambda
-        best_logistic_model["drop"] = drop
-        best_logistic_model["drop_percent"] = drop_percent
-        best_logistic_model["part_of_speech"] = part_of_speech
-        best_logistic_model["best_lambda"] = current_best_lambda
-        best_logistic_model["best_accuracy"] = accuracy_logistic
-    #TREE
-    if accuracy_trees > acc_tree:
-        acc_tree = accuracy_trees
-        best_overall_alpha = best_alpha
-        best_tree_model["drop"] = drop
-        best_tree_model["drop_percent"] = drop_percent
-        best_tree_model["part_of_speech"] = part_of_speech
-        best_tree_model["best_alpha"] = best_overall_alpha
-        best_tree_model["best_accuracy"] = acc_tree
-    #FOREST
-    if accuracy_forest > acc_rf:
-        acc_rf = accuracy_forest
-        best_overall_n_estimators = best_n_estimators
-        best_overall_max_features = best_max_features
-        best_random_forest["drop"] = drop
-        best_random_forest["drop_percent"] = drop_percent
-        best_random_forest["part_of_speech"] = part_of_speech
-        best_random_forest["best_accuracy"] = accuracy_forest
-        best_random_forest["best_max_features"] = best_max_features
-        best_random_forest["best_n_estimator"] = best_n_estimators
-    #NAIVE BAYES
-    if best_accuracy_naive > acc_naive:
-        acc_naive = best_accuracy_naive
-        best_naive["drop"] = drop
-        best_naive["drop_percent"] = drop_percent
-        best_naive["part_of_speech"] = part_of_speech
-        best_naive["best_k"] = best_k
-        best_naive["best_accuracy"] = best_accuracy_naive
+    # Print after being done
+    print("decision tree results", best_tree_model)
+    print("logistic regression results", best_logistic_model)
+    print("random forest results", best_random_forest)
+    print("naive bayes results", best_naive)
+
+
 
 
 #PRINT BEST DICTIONARY (best param config) PER MODEL
-
-print("decision tree results", best_tree_model)
-print("logistic regression results", best_logistic_model)
-print("random forest results", best_random_forest)
-print("naive bayes results", best_naive)
-
 
 
 

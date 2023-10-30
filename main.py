@@ -1,4 +1,5 @@
 import os
+from matplotlib import pyplot as plt
 import pandas as pd
 import string
 import nltk
@@ -19,6 +20,8 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import cross_val_score
 import numpy as np
 from sklearn.pipeline import Pipeline
+import seaborn as sns
+
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('averaged_perceptron_tagger')
@@ -317,7 +320,7 @@ for bigrams in (False, True):
             feature_names_train = vectorizerTrain.get_feature_names_out()
 
         if bigrams:
-            used_drop = drop_percent * 10
+            used_drop = drop_percent * 5
         else:
             used_drop = drop_percent
 
@@ -375,7 +378,7 @@ for bigrams in (False, True):
         #NAIVE BAYES
         if best_accuracy_naive > acc_naive:
             acc_naive = best_accuracy_naive
-            best_naive["bigram"] = bigrams
+            best_naive["bigrams"] = bigrams
             best_naive["drop_percent"] = drop_percent
             best_naive["part_of_speech"] = part_of_speech
             best_naive["best_k"] = best_k
@@ -402,11 +405,24 @@ train_accuracy = tree2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy TREE", train_accuracy)
 #predict on test set
 y_pred = tree2.predict(doc_term_matrix_array_test)
+evaluate_tree = evaluate(df_test['Label'], y_pred)
+print("confusion matrix tree", evaluate_tree[0])
+
 test_accuracy = accuracy_score(df_test['Label'], y_pred)
 print("best params test accuracy TREE", test_accuracy )
 
 
-
+plt.figure(figsize=(6, 6))
+sns.set(font_scale=1.2)
+sns.heatmap(evaluate_tree[0], annot=True, fmt='g', cmap='Blues',
+            xticklabels=['Class 0', 'Class 1'],  # type: ignore
+            yticklabels=['Class 0', 'Class 1']) # type: ignore
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.title('Confusion Matrix')
+plt.tight_layout()
+plt.savefig('confused_decision.png')  # Save the image
+plt.show()
 
 #Train and test on the test set Random Forest
 rf2 = RandomForestClassifier(n_estimators = best_random_forest["best_n_estimator"] , max_features = best_random_forest["best_max_features"]).fit(doc_term_matrix_array_train, df_train['Label'])
@@ -415,8 +431,23 @@ print("best params train accuracy RANDOM FOREST", train_accuracy)
 #predict on test set
 y_pred = rf2.predict(doc_term_matrix_array_test)
 test_accuracy = accuracy_score(df_test['Label'], y_pred)
+
+evaluate_forest = evaluate(df_test['Label'], y_pred)
+print("confusion matrix forest", evaluate_forest[0])
+
 print("best params test accuracy RANDOM FOREST", test_accuracy )
 
+plt.figure(figsize=(6, 6))
+sns.set(font_scale=1.2)
+sns.heatmap(evaluate_forest[0], annot=True, fmt='g', cmap='Blues',
+            yticklabels=['Class 0', 'Class 1'],  # type: ignore
+            xticklabels=['Class 0', 'Class 1']) # type: ignore
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.title('Confusion Matrix')
+plt.tight_layout()
+plt.savefig('confused_forest.png')  # Save the image
+plt.show()
 
 #Train and test on the test set Logistic Regression 
 logreg2= LogisticRegression(penalty='l1', C= best_logistic_model["best_lambda"] , solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
@@ -426,9 +457,23 @@ print("best params train accuracy LOGREG", train_accuracy_logreg)
 y_pred_logreg = logreg2.predict(doc_term_matrix_array_test)
 test_accuracy_logreg= accuracy_score(df_test['Label'], y_pred_logreg)
 print("best params test accuracy LOGREG", test_accuracy_logreg)
+evaluate_logreg = evaluate(df_test['Label'], y_pred_logreg)
+print("confusion matrix logreg", evaluate_logreg[0])
+
+plt.figure(figsize=(6, 6))
+sns.set(font_scale=1.2)
+sns.heatmap(evaluate_logreg[0], annot=True, fmt='g', cmap='Blues',
+            yticklabels=['Class 0', 'Class 1'],  # type: ignore
+            xticklabels=['Class 0', 'Class 1']) # type: ignore
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.title('Confusion Matrix')
+plt.tight_layout()
+plt.savefig('confused_logreg.png')  # Save the image
+plt.show()
 
 
-#modify train and test matrices based on k features selected during crossval
+#modify train and test matrices based on k features selected during crossvalidation
 selector = SelectKBest(chi2, k=best_naive["best_k"])
 X_train_selected = selector.fit_transform(doc_term_matrix_array_train, df_train['Label'])
 selected_feature_indices = selector.get_support(indices=True)
@@ -441,5 +486,19 @@ print("best params train accuracy NAIVE BAYES", train_accuracy_mnb2)
 y_pred_mnb2 = mnb2.predict(X_test_selected)
 test_accuracy_mnb2 = accuracy_score(df_test['Label'], y_pred_mnb2)
 print("best params test accuracy NAIVE BAYES", test_accuracy_mnb2)
+evaluate_mnb2 = evaluate(df_test['Label'], y_pred_mnb2)
+print("confusion matrix mnb", evaluate_mnb2[0])
+
+plt.figure(figsize=(6, 6))
+sns.set(font_scale=1.2)
+sns.heatmap(evaluate_mnb2[0], annot=True, fmt='g', cmap='Blues',
+            yticklabels=['Class 0', 'Class 1'],  # type: ignore
+            xticklabels=['Class 0', 'Class 1']) # type: ignore
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.title('Confusion Matrix')
+plt.tight_layout()
+plt.savefig('confused_mnb2.png')  # Save the image
+plt.show()
 
 

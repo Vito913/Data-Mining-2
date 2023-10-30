@@ -274,29 +274,29 @@ acc_tree = 0
 acc_naive = 0
 
 #SEARCH PARAMS
-# Define values to experiment with (labda for logreg)
-lambda_values = {'C': [1000.0, 2000.0]}
-# Define values to experiment with (n of trees and max features for rf)
-param_grid_forest = {
-    'n_estimators': [5, 10],  # List of different numbers of trees
-    'max_features': ['sqrt']  # Different options for max_features
-}
-# Define values to experiment with (alpha for tree)
-param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 1)}
-# Define values to experiment with (k feature selection for naive bayes)
-k_values = [1000, 1200]
-# Define values to experiment with (labda for logreg)
-
-# lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0]}
+# # Define values to experiment with (labda for logreg)
+# lambda_values = {'C': [1000.0, 2000.0]}
 # # Define values to experiment with (n of trees and max features for rf)
 # param_grid_forest = {
-#     'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
-#     'max_features': ['sqrt', 'log2', None]  # Different options for max_features
+#     'n_estimators': [5, 10],  # List of different numbers of trees
+#     'max_features': ['sqrt']  # Different options for max_features
 # }
 # # Define values to experiment with (alpha for tree)
-# param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 20)}
+# param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 1)}
 # # Define values to experiment with (k feature selection for naive bayes)
-# k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+# k_values = [1000, 1200]
+# # Define values to experiment with (labda for logreg)
+
+lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0]}
+# Define values to experiment with (n of trees and max features for rf)
+param_grid_forest = {
+    'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
+    'max_features': ['sqrt', 'log2', None]  # Different options for max_features
+}
+# Define values to experiment with (alpha for tree)
+param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 20)}
+# Define values to experiment with (k feature selection for naive bayes)
+k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
 
 
 # Set up the KFold cross-validation

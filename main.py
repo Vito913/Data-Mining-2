@@ -290,7 +290,7 @@ acc_naive = 0
 lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0]}
 # Define values to experiment with (n of trees and max features for rf)
 param_grid_forest = {
-    'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
+    'n_estimators': [400, 500, 600, 700, 800],  # List of different numbers of trees
     'max_features': ['sqrt', 'log2', None]  # Different options for max_features
 }
 # Define values to experiment with (alpha for tree)

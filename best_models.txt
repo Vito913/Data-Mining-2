@@ -1,8 +1,8 @@
 best naive unigrams {'drop_percent': 0.0, 'part_of_speech': False, 'best_k': 1000, 'best_accuracy': 0.84375, 'bigram': False, 'bigram_pos': False}
 best naive bigram {'drop_percent': 0.0, 'part_of_speech': False, 'best_k': 1000, 'best_accuracy': 0.84375, 'bigram': False, 'bigram_pos': False}
-best logistic unigrams {'drop_percent': 0.0025, 'part_of_speech': False, 'best_lambda': 2000.0, 'best_accuracy': 0.859375, 'bigram': True, 'bigram_pos': False}
-best logistic bigram {'drop_percent': 0.0025, 'part_of_speech': False, 'best_lambda': 2000.0, 'best_accuracy': 0.859375, 'bigram': True, 'bigram_pos': False}
-best random forest unigrams {'drop_percent': 0.0, 'part_of_speech': False, 'best_n_estimator': 10, 'best_accuracy': 0.7046875, 'best_max_features': 'sqrt', 'bigram': False, 'bigram_pos': False}
-best random forest bigram {'drop_percent': 0.0, 'part_of_speech': False, 'best_n_estimator': 10, 'best_accuracy': 0.7046875, 'best_max_features': 'sqrt', 'bigram': False, 'bigram_pos': False}
-best tree unigrams {'drop_percent': 0.002, 'part_of_speech': False, 'best_alpha': 0.0, 'best_accuracy': 0.7203125, 'bigram': False, 'bigram_pos': False}
-best tree bigram {'drop_percent': 0.002, 'part_of_speech': False, 'best_alpha': 0.0, 'best_accuracy': 0.7203125, 'bigram': False, 'bigram_pos': False}
+best logistic unigrams {'drop_percent': 0.0, 'part_of_speech': True, 'best_lambda': 5000.0, 'best_accuracy': 0.859375, 'bigram': False, 'bigram_pos': False}
+best logistic bigram {'drop_percent': 0.0, 'part_of_speech': True, 'best_lambda': 5000.0, 'best_accuracy': 0.859375, 'bigram': False, 'bigram_pos': False}
+best random forest unigrams {'drop_percent': 0.0, 'part_of_speech': False, 'best_n_estimator': 700, 'best_accuracy': 0.8625, 'best_max_features': 'sqrt', 'bigram': False, 'bigram_pos': False}
+best random forest bigram {'drop_percent': 0.0, 'part_of_speech': False, 'best_n_estimator': 700, 'best_accuracy': 0.8625, 'best_max_features': 'sqrt', 'bigram': False, 'bigram_pos': False}
+best tree unigrams {'drop_percent': 0.0015, 'part_of_speech': True, 'best_alpha': 0.0, 'best_accuracy': 0.7171875, 'bigram': False, 'bigram_pos': True}
+best tree bigram {'drop_percent': 0.0015, 'part_of_speech': True, 'best_alpha': 0.0, 'best_accuracy': 0.7171875, 'bigram': False, 'bigram_pos': True}

@@ -274,48 +274,66 @@ acc_tree = 0
 acc_naive = 0
 
 #SEARCH PARAMS
-# Define values to experiment with (labda for logreg)
-lambda_values = {'C': [1000.0, 2000.0]}
-# Define values to experiment with (n of trees and max features for rf)
-param_grid_forest = {
-    'n_estimators': [5, 10],  # List of different numbers of trees
-    'max_features': ['sqrt']  # Different options for max_features
-}
-# Define values to experiment with (alpha for tree)
-param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 1)}
-# Define values to experiment with (k feature selection for naive bayes)
-k_values = [1000, 1200]
-# Define values to experiment with (labda for logreg)
-
-# lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0]}
+# # Define values to experiment with (labda for logreg)
+# lambda_values = {'C': [1000.0, 2000.0]}
 # # Define values to experiment with (n of trees and max features for rf)
 # param_grid_forest = {
-#     'n_estimators': [400, 500, 600, 700, 800],  # List of different numbers of trees
-#     'max_features': ['sqrt', 'log2', None]  # Different options for max_features
+#     'n_estimators': [5, 10],  # List of different numbers of trees
+#     'max_features': ['sqrt']  # Different options for max_features
 # }
 # # Define values to experiment with (alpha for tree)
-# param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 20)}
+# param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 1)}
 # # Define values to experiment with (k feature selection for naive bayes)
-# k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+# k_values = [1000, 1200]
+# Define values to experiment with (labda for logreg)
+
+lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0]}
+# Define values to experiment with (n of trees and max features for rf)
+param_grid_forest = {
+    'n_estimators': [400, 500, 600, 700, 800],  # List of different numbers of trees
+    'max_features': ['sqrt', 'log2', None]  # Different options for max_features
+}
+# Define values to experiment with (alpha for tree)
+param_grid_tree = {"ccp_alpha": np.linspace(0, 0.1, 20)}
+# Define values to experiment with (k feature selection for naive bayes)
+k_values = [ 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
 
 
 # Set up the KFold cross-validation
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
+def return_temp_dict():
+    best_tree_model = {"drop_percent": None, "part_of_speech": None, "best_alpha": None, "best_accuracy": -1, "bigram": True}
+    best_logistic_model = {"drop_percent": None, "part_of_speech": None, "best_lambda": None, "best_accuracy": -1,"bigram": True}
+    best_random_forest = {"drop_percent": None, "part_of_speech": None, "best_n_estimator": None, "best_accuracy": -1, "best_max_features": None,"bigram": True}
+    best_naive = {"drop_percent": None, "part_of_speech": None, "best_k": None, "best_accuracy": -1, "bigram": True}
+
+    return best_tree_model, best_logistic_model, best_random_forest, best_naive
+
 # Creating a map that will be returned with the best models hyperparameters
-best_tree_model = {"drop_percent": None, "part_of_speech": None, "best_alpha": None, "best_accuracy": None, "bigram": None}
-best_logistic_model = {"drop_percent": None, "part_of_speech": None, "best_lambda": None, "best_accuracy": None,"bigram": None}
-best_random_forest = {"drop_percent": None, "part_of_speech": None, "best_n_estimator": None, "best_accuracy": None, "best_max_features": None,"bigram": None}
-best_naive = {"drop_percent": None, "part_of_speech": None, "best_k": None, "best_accuracy": None, "bigram": None}
-bigram_first = False
+best_tree_model_bi = {"drop_percent": None, "part_of_speech": None, "best_alpha": None, "best_accuracy": -1, "bigram": True}
+best_logistic_model_bi = {"drop_percent": None, "part_of_speech": None, "best_lambda": None, "best_accuracy": -1,"bigram": True}
+best_random_forest_bi = {"drop_percent": None, "part_of_speech": None, "best_n_estimator": None, "best_accuracy": -1, "best_max_features": None,"bigram": True}
+best_naive_bi = {"drop_percent": None, "part_of_speech": None, "best_k": None, "best_accuracy": -1, "bigram": True}
+
+best_tree_model_uni = {"drop_percent": None, "part_of_speech": None, "best_alpha": None, "best_accuracy": -1, "bigram": False}
+best_logistic_model_uni = {"drop_percent": None, "part_of_speech": None, "best_lambda": None, "best_accuracy": -1,"bigram": False}
+best_random_forest_uni = {"drop_percent": None, "part_of_speech": None, "best_n_estimator": None, "best_accuracy": -1, "best_max_features": None,"bigram": False}
+best_naive_uni = {"drop_percent": None, "part_of_speech": None, "best_k": None, "best_accuracy": -1, "bigram": False}
+
 for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.002, 0.0025],[False, True]):
-    if bigram:
-        if not bigram_first:
-            acc_logistic = 0
-            acc_rf = 0
-            acc_tree = 0
-            acc_naive = 0
-            bigram_first = True
+    if bigram is True:
+        acc_logistic = best_logistic_model_bi['best_accuracy']
+        acc_rf = best_random_forest_bi['best_accuracy']
+        acc_tree = best_tree_model_bi['best_accuracy']
+        acc_naive = best_naive_bi['best_accuracy']
+    elif bigram is False:
+        acc_logistic = best_logistic_model_uni['best_accuracy']
+        acc_rf = best_random_forest_uni['best_accuracy']
+        acc_tree = best_tree_model_uni['best_accuracy']
+        acc_naive = best_naive_uni['best_accuracy']
+
+    best_tree_model, best_logistic_model, best_random_forest, best_naive = return_temp_dict()
 
     # Checks if part of speech tagging is used
     if pos and not bigram:
@@ -342,7 +360,7 @@ for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.
     else:
         used_drop = drop_percent
 
-    selected_columns = np.where(current_matrix_train.sum(axis=0) >= used_drop* current_matrix_train.shape[0])[0]
+    selected_columns = np.where(current_matrix_train.sum(axis=0) >= used_drop * current_matrix_train.shape[0])[0]
     #current_matrix_train = current_matrix_train[:, selected_columns]
     current_matrix_train = current_matrix_train[:, (current_matrix_train.sum(axis=0) >= used_drop * current_matrix_train.shape[0])]
     feature_names_train = [feature_names_train[idx] for idx in selected_columns]  
@@ -355,17 +373,22 @@ for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.
     y = df_train['Label']
     
     #DO CV WITH ALL 4 MODELS BY CALLING THEIR FUNCTIONS
-    accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf,lambda_values)
+    accuracy_logistic, current_best_lambda = logistic_regression_classification(x, y, kf, lambda_values)
     print("logistic regression done")
-    accuracy_forest, best_n_estimators, best_max_features = random_forest_classification(x, y,kf, param_grid_forest)
+    accuracy_forest, best_n_estimators, best_max_features = random_forest_classification(x, y, kf, param_grid_forest)
     print("random forest done")
     accuracy_trees, best_alpha = decision_tree_classification(x, y, kf, param_grid_tree)
     print("single tree done")
     best_accuracy_naive, best_k = naive_bayes(x, y, k_values)
     print("naive bayes done")
+
     #update best overall params and fill in dictionary with current parameters
     #LOGREG
+    print("\n\n")
+    print("Was this a bigram?")
+    print(bigram)
     if accuracy_logistic > acc_logistic:
+        print(f"logistic is the best!and the bigram is {bigram}, so ill overwrite this one.")
         best_logistic_flag = True
         acc_logistic = accuracy_logistic
         best_overall_lambda = current_best_lambda
@@ -376,6 +399,7 @@ for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.
         best_logistic_model["best_accuracy"] = acc_logistic
     #TREE
     if accuracy_trees > acc_tree:
+        print(f"trees is the best!and the bigram is {bigram}, so ill overwrite this one.")
         best_tree_flag = True
         acc_tree = accuracy_trees
         best_overall_alpha = best_alpha
@@ -387,6 +411,7 @@ for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.
 
     #FOREST
     if accuracy_forest > acc_rf:
+        print(f"forest is the best! and the bigram is {bigram}, so ill overwrite this one.")
         best_forest_flag = True
         acc_rf = accuracy_forest
         best_overall_n_estimators = best_n_estimators
@@ -397,8 +422,10 @@ for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.
         best_random_forest["best_accuracy"] = acc_rf
         best_random_forest["best_max_features"] = best_overall_max_features
         best_random_forest["best_n_estimator"] = best_overall_n_estimators
+    
     #NAIVE BAYES
     if best_accuracy_naive > acc_naive:
+        print(f"naive is the best!and the bigram is {bigram}, so ill overwrite this one.")
         best_naive_flag = True
         acc_naive = best_accuracy_naive
         best_naive["bigram"] = bigram
@@ -411,41 +438,42 @@ for bigram, drop_percent, pos in product([False, True],[0.0 ,0.0012, 0.0015 , 0.
         
     if bigram:
         if best_naive_flag:
-            best_naive_bigram = best_naive
+            best_naive_bi = best_naive
             best_naive_flag = False
         if best_logistic_flag:
-            best_logistic_model_bigram = best_logistic_model
+            best_logistic_model_bi = best_logistic_model
             best_logistic_flag = False
         if best_forest_flag:
-            best_random_forest_bigram = best_random_forest
+            best_random_forest_bi = best_random_forest
             best_forest_flag = False
         if best_tree_flag:
-            best_tree_model_bigram = best_tree_model
+            best_tree_model_bi = best_tree_model
             best_tree_flag = False
-    if not bigram:
+    if bigram is False:
         if best_naive_flag:
-            best_naive_unigrams = best_naive
+            best_naive_uni = best_naive
             best_naive_flag = False
         if best_logistic_flag:
-            best_logistic_model_unigrams = best_logistic_model
+            best_logistic_model_uni = best_logistic_model
             best_logistic_flag = False
         if best_forest_flag:
-            best_random_forest_unigrams = best_random_forest
+            best_random_forest_uni = best_random_forest
             best_forest_flag = False
         if best_tree_flag:
-            best_tree_model_unigrams = best_tree_model
+            best_tree_model_uni = best_tree_model
             best_tree_flag = False
     
     
 
-print("best unigram logreg", best_logistic_model_unigrams)
-print("best unigram forest", best_random_forest_unigrams)
-print("best unigram tree", best_tree_model_unigrams)
-print("best unigram naive", best_naive_unigrams)
-print("best bigram logreg", best_logistic_model_bigram)
-print("best bigram forest", best_random_forest_bigram)
-print("best bigram tree", best_tree_model_bigram)
-print("best bigram naive", best_naive_bigram)
+# print("best unigram logreg", best_logistic_model_uni)
+# print("best unigram forest", best_random_forest_uni)
+# print("best unigram tree", best_tree_model_uni)
+# print("best unigram naive", best_naive_uni)
+
+# print("best bigram logreg", best_logistic_model_bi)
+# print("best bigram forest", best_random_forest_bi)
+# print("best bigram tree", best_tree_model_bi)
+# print("best bigram naive", best_naive_bi)
 
 
 
@@ -463,20 +491,20 @@ print("best bigram naive", best_naive_bigram)
 
 ## save the best models dictioneries to a txt file
 with open("best_models.txt", "w") as f:
-    f.write("best naive unigrams " + str(best_naive_unigrams) + "\n")
-    f.write("best naive bigram " + str(best_naive_bigram) + "\n")
-    f.write("best logistic unigrams " + str(best_logistic_model_unigrams) + "\n")
-    f.write("best logistic bigram " + str(best_logistic_model_bigram) + "\n")
-    f.write("best random forest unigrams " + str(best_random_forest_unigrams) + "\n")
-    f.write("best random forest bigram " + str(best_random_forest_bigram) + "\n")
-    f.write("best tree unigrams " + str(best_tree_model_unigrams) + "\n")
-    f.write("best tree bigram " + str(best_tree_model_bigram) + "\n")
+    f.write("best naive unigrams " + str(best_naive_uni) + "\n")
+    f.write("best naive bigram " + str(best_naive_bi) + "\n")
+    f.write("best logistic unigrams " + str(best_logistic_model_uni) + "\n")
+    f.write("best logistic bigram " + str(best_logistic_model_bi) + "\n")
+    f.write("best random forest unigrams " + str(best_random_forest_uni) + "\n")
+    f.write("best random forest bigram " + str(best_random_forest_bi) + "\n")
+    f.write("best tree unigrams " + str(best_tree_model_uni) + "\n")
+    f.write("best tree bigram " + str(best_tree_model_bi) + "\n")
 
 
 ################# UNIGRAM STUFF #####################
 
 #Train and test on the test set tree
-tree2 = tree.DecisionTreeClassifier(ccp_alpha=best_tree_model_unigrams["best_alpha"] ).fit(doc_term_matrix_array_train, df_train['Label'])
+tree2 = tree.DecisionTreeClassifier(ccp_alpha=best_tree_model_uni["best_alpha"] ).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy = tree2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy TREE", train_accuracy)
 #predict on test set
@@ -501,7 +529,7 @@ plt.savefig('confused_decision_unigram.png')  # Save the image
 # plt.show()
 
 #Train and test on the test set Random Forest
-rf2 = RandomForestClassifier(n_estimators = best_random_forest_unigrams["best_n_estimator"] , max_features = best_random_forest_unigrams["best_max_features"]).fit(doc_term_matrix_array_train, df_train['Label'])
+rf2 = RandomForestClassifier(n_estimators = best_random_forest_uni["best_n_estimator"] , max_features = best_random_forest_uni["best_max_features"]).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy RANDOM FOREST", train_accuracy)
 #predict on test set
@@ -526,7 +554,7 @@ plt.savefig('confused_forest_unigram.png')  # Save the image
 # plt.show()
 
 #Train and test on the test set Logistic Regression 
-logreg2= LogisticRegression(penalty='l1', C= best_logistic_model_unigrams["best_lambda"] , solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
+logreg2= LogisticRegression(penalty='l1', C= best_logistic_model_uni["best_lambda"] , solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy_logreg = logreg2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy LOGREG", train_accuracy_logreg)
 #predict on test set
@@ -550,7 +578,7 @@ plt.savefig('confused_logreg_unigram.png')  # Save the image
 
 
 #modify train and test matrices based on k features selected during crossvalidation
-selector = SelectKBest(chi2, k=best_naive_unigrams["best_k"])
+selector = SelectKBest(chi2, k=best_naive_uni["best_k"])
 X_train_selected = selector.fit_transform(doc_term_matrix_array_train, df_train['Label'])
 selected_feature_indices = selector.get_support(indices=True)
 X_test_selected = doc_term_matrix_array_test[:, selected_feature_indices]
@@ -582,7 +610,7 @@ plt.savefig('confused_mnb2_unigram.png')  # Save the image
 
 
 #Train and test on the test set Random Forest
-tree2 = tree.DecisionTreeClassifier(ccp_alpha=best_tree_model_bigram["best_alpha"] ).fit(doc_term_matrix_array_train, df_train['Label'])
+tree2 = tree.DecisionTreeClassifier(ccp_alpha=best_tree_model_bi["best_alpha"] ).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy = tree2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy TREE", train_accuracy)
 #predict on test set
@@ -607,7 +635,7 @@ plt.savefig('confused_decision_bigram.png')  # Save the image
 # plt.show()
 
 #Train and test on the test set Random Forest
-rf2 = RandomForestClassifier(n_estimators = best_random_forest_bigram["best_n_estimator"] , max_features = best_random_forest_bigram["best_max_features"]).fit(doc_term_matrix_array_train, df_train['Label'])
+rf2 = RandomForestClassifier(n_estimators = best_random_forest_bi["best_n_estimator"] , max_features = best_random_forest_bi["best_max_features"]).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy =rf2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy RANDOM FOREST", train_accuracy)
 #predict on test set
@@ -632,7 +660,7 @@ plt.savefig('confused_forest_bigram.png')  # Save the image
 # plt.show()
 
 #Train and test on the test set Logistic Regression 
-logreg2= LogisticRegression(penalty='l1', C= best_logistic_model_bigram["best_lambda"] , solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
+logreg2= LogisticRegression(penalty='l1', C= best_logistic_model_bi["best_lambda"] , solver='liblinear').fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy_logreg = logreg2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy LOGREG", train_accuracy_logreg)
 #predict on test set
@@ -656,7 +684,7 @@ plt.savefig('confused_logreg_bigram.png')  # Save the image
 
 
 #modify train and test matrices based on k features selected during crossvalidation
-selector = SelectKBest(chi2, k=best_naive_bigram["best_k"])
+selector = SelectKBest(chi2, k=best_naive_bi["best_k"])
 X_train_selected = selector.fit_transform(doc_term_matrix_array_train, df_train['Label'])
 selected_feature_indices = selector.get_support(indices=True)
 X_test_selected = doc_term_matrix_array_test[:, selected_feature_indices]

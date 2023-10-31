@@ -175,10 +175,11 @@ y = df_train['Label']
 
 # Set up the KFold cross-validation
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
+'''
 
 ########### CLASSIFICATION TREES #####################
 # Define values to experiment with (alpha for tree)
-param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 1)}
+param_grid_tree = {"ccp_alpha": np.linspace(0, 0.2, 20)}
 clf = tree.DecisionTreeClassifier()
 grid_search = GridSearchCV(estimator=clf, param_grid=param_grid_tree, cv=kf, n_jobs=-1)
 
@@ -190,17 +191,15 @@ best_tree_model = grid_search.best_estimator_
 best_accuracy = grid_search.best_score_
 
 #Train and test on the test set Random Forest
-tree2 = RandomForestClassifier(ccp_alpha=best_alpha ).fit(doc_term_matrix_array_train, df_train['Label'])
+tree2 = tree.DecisionTreeClassifier(ccp_alpha=best_alpha ).fit(doc_term_matrix_array_train, df_train['Label'])
 train_accuracy = tree2.score(doc_term_matrix_array_train, df_train['Label'])
 print("best params train accuracy TREE", train_accuracy)
-#predict on test set
-y_pred = tree2.predict(doc_term_matrix_array_test)
-test_accuracy = accuracy_score(df_test['Label'], y_pred)
-print("best params test accuracy TREE", test_accuracy )
 
+########### FEATURE ANALISYS #####################
+'''
 
 ################ RANDOM FOREST #####################
-
+'''
 param_grid = {
     #'n_estimators': [200, 300, 400, 500, 600,700, 800, 900],  # List of different numbers of trees
     'n_estimators': [2],
@@ -241,32 +240,31 @@ print("best params train accuracy", train_accuracy)
 y_pred = rf2.predict(doc_term_matrix_array_test)
 test_accuracy = accuracy_score(df_test['Label'], y_pred)
 print("best params test accuracy", test_accuracy )
-
+'''
 ################################# FEATURE ANALYSIS ###########################
-
+'''
 ##TREE AND RANDOM FOREST
 treeLike_models = [tree2, rf2]
-
-for model in treeLike_models:
+N = 5
+for i, model in enumerate(treeLike_models):
     #inspect features (default)
-    print("Working on ", model, "\n")
+    print("Working on ", str(model), "\n")
     
     feat_importances = pd.Series(model.feature_importances_, index = docTermMatrixTrain.columns).sort_values(ascending = True)
+    print("feat importances", feat_importances)
     top_n_features_test = feat_importances.nlargest(5)
+    print(top_n_features_test)
     top_n_features_test.plot(kind = 'barh')
     plt.savefig(str(model) + "_default_topNfeats.jpg")
-    #plt.show()
-   
 
-
-    #calculate permutation importance  
-    # For class 1
+    
+    # Calculate permutation importance for class 1
     result_class_1_train = permutation_importance(model, doc_term_matrix_array_train, (df_train["Label"] == 1).astype(int),
-                                            n_repeats=20, random_state=42, n_jobs=2)
+                                                n_repeats=2, random_state=42, n_jobs=2)
 
-    # For class 0
+    # Calculate permutation importance for class 0
     result_class_0_train = permutation_importance(model, doc_term_matrix_array_train, (df_train["Label"] == 0).astype(int),
-                                            n_repeats=20, random_state=42, n_jobs=2)
+                                                n_repeats=2, random_state=42, n_jobs=2)
 
 
     # Use the same indices to sort features for both class 1 and class 0
@@ -283,66 +281,162 @@ for model in treeLike_models:
     # Create DataFrames for visualization
     top_n_features_class_1_train = pd.DataFrame(importances_class_1_train, columns=feature_names_sorted_class1)
     top_n_features_class_0_train = pd.DataFrame(importances_class_0_train, columns=feature_names_sorted_class0)
+     
+    print(top_n_features_class_1_train)
+    print(top_n_features_class_0_train)
 
-    f, axs = plt.subplots(1, 2, figsize=(15, 10))
+    top_n_features_class_1_train.plot(kind='barh')
+    plt.title("Top {} Features for Class 1 (Permutation Importance)".format(N))
+    plt.xlabel("Decrease in Accuracy Score")
+    plt.savefig(str(model) + "_TopNFeats_Class1.jpg")
+    plt.close()
 
-    top_n_features_class_1_train.plot.box(vert=False, whis=10, ax=axs[0, 0])
-    axs[0, 0].set_title("Permutation Importances (Class 1, Test set)")
-    axs[0, 0].axvline(x=0, color="k", linestyle="--")
-    axs[0, 0].set_xlabel("Decrease in accuracy score")
+    # Plot and save top N features for class 0 using permutation importance
+    top_n_features_class_0_train.plot(kind='barh')
+    plt.title("Top {} Features for Class 0 (Permutation Importance)".format(N))
+    plt.xlabel("Decrease in Accuracy Score")
+    plt.savefig(str(model) + "_TopNFeats_Class0.jpg")
+    plt.close()
+    '''
 
-    top_n_features_class_0_train.plot.box(vert=False, whis=10, ax=axs[0, 1])
-    axs[0, 1].set_title("Permutation Importances (Class 0, Test set)")
-    axs[0, 1].axvline(x=0, color="k", linestyle="--")
-    axs[0, 1].set_xlabel("Decrease in accuracy score")
 
-    plt.tight_layout()
-    plt.savefig(str(model) + "_class_0_1_topNfeats.jpg")
-    plt.show()
+
 
 
 ######################## LOGISTIC REGRESSION ############################
-'''
-# split the data into 10 folds and every time train on 9 and test on 1
-kf = KFold(n_splits=10, shuffle=True, random_state=42)
+lambda_values = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0]}
+logistic_regression = LogisticRegression(penalty='l1', solver='liblinear')
 
-# Define the range of lambda values to try
-Lambda = {'C': [1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0]}
-best_accuracy = 0
-best_lambda = None
+grid_search = GridSearchCV(estimator=logistic_regression, param_grid=lambda_values, cv=kf)
 
-for train_index, val_index in kf.split(x):
+grid_search.fit(doc_term_matrix_array_train, df_train['Label'])
+# Get the best hyperparameter
+best_lambda = grid_search.best_params_['C']
 
-    X_train, X_val = x[train_index], x[val_index]
-    y_train, y_val = y[train_index], y[val_index]
+# Get the best cross-validated score
+best_accuracy = grid_search.best_score_
 
-    logistic_regression = LogisticRegression(penalty='l1', solver='liblinear')
-    grid_search = GridSearchCV(logistic_regression, Lambda, cv=10)
 
-    # Perform the grid search
-    grid_search.fit(X_train, y_train)
+logreg2 = LogisticRegression(penalty='l1',  C=best_lambda, solver='liblinear')
+logreg2.fit(doc_term_matrix_array_train, df_train['Label'])
+y_pred = logreg2.predict(doc_term_matrix_array_test)
+test_accuracy = accuracy_score(df_test['Label'], y_pred)
+print("best params test accuracy", test_accuracy )
 
-    # Get the best hyperparameter
-    best_lambda = grid_search.best_params_['C']
 
-    # Train the model with the best lambda
-    best_model = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda)
-    best_model.fit(X_train, y_train)
+###################### FEATURE IMPORTANCE ANALISYS ###########################
 
-    # Predict on the validation set
-    y_pred = best_model.predict(X_val)
+# Get importance
+importance = logreg2.coef_[0]
 
-    # Evaluate the model (e.g., calculate accuracy)
-    accuracy = best_model.score(X_val, y_val)
+# Get indices of top 5 positive and negative coefficients
+top_positive_indices = np.argsort(-importance)[:5]
+top_negative_indices = np.argsort(importance)[:5]
 
-    # picking the best accuracy
-    if accuracy > best_accuracy:
-        best_accuracy = accuracy
-        best_lambda_final = best_lambda
+# Extract corresponding coefficients and words
+top_positive_coeffs = importance[top_positive_indices]
+top_negative_coeffs = importance[top_negative_indices]
 
-print(best_accuracy,best_lambda)
-#final_logistic_regression = LogisticRegression(penalty='l1', solver='liblinear', C=best_lambda_final)
-#final_logistic_regression.fit(x, y)
 
-'''
+#REMEMBER TO USE UNI+BIGRAM FEATURE NAMES HERE!! (0 is true, 1 is deceptive)
 
+top_deceptive_words = [feature_names_train[index] for index in top_positive_indices]
+top_true_words = [feature_names_train[index] for index in top_negative_indices]
+
+# Concatenate positive and negative coefficients and words
+selected_coeffs = np.concatenate((top_positive_coeffs, top_negative_coeffs))
+selected_words = top_deceptive_words + top_true_words
+
+# Plot feature importance with corresponding words
+plt.figure(figsize=(8, 6))
+plt.bar(selected_words, selected_coeffs, color=['red' if x >= 0 else 'green' for x in selected_coeffs])
+plt.xlabel('Words')
+plt.ylabel('Coefficient Value')
+plt.title('Top 5 Class 1 (deceptive)  and Class 0 (true) Coefficients with Corresponding Words')
+plt.xticks(rotation=45)  # Rotate x-axis labels for better visibility
+plt.savefig("FIA_logregBest.jpg")
+
+
+################### NAIVE BAYES ###################
+k_values = [ 750, 1000]
+pipeline = Pipeline([
+    ('chi2', SelectKBest(chi2)),
+    ('naive_bayes', MultinomialNB())
+])
+
+# Create a parameter grid with the k values
+param_grid = {
+    'chi2__k': k_values
+}
+
+# Perform Grid Search with 10-fold cross-validation
+grid_search = GridSearchCV(pipeline, param_grid=param_grid, cv=10, scoring='accuracy')
+
+# Fit the Grid Search on the data
+grid_search.fit(x, y)
+finalK = list(grid_search.best_params_.values())[0]
+
+selector = SelectKBest(chi2, k=finalK)
+X_train_selected = selector.fit_transform(doc_term_matrix_array_train, df_train['Label'])
+selected_feature_indices = selector.get_support(indices=True)
+# Get the names of the selected features
+selected_feature_names_train = [feature_names_train[index] for index in selected_feature_indices]
+print(len(selected_feature_names_train))
+X_test_selected = doc_term_matrix_array_test[:, selected_feature_indices]
+#Train and test on the test set Naive Bayes
+mnb2 = MultinomialNB().fit(X_train_selected , df_train['Label'])
+
+##################### FEATURE ANALISYS (https://stackoverflow.com/questions/50526898/how-to-get-feature-importance-in-naive-bayes)
+#normalize=True outputs proportion 
+prob_pos = df_train['Label'].value_counts(normalize=True)[0]
+prob_neg = df_train['Label'].value_counts(normalize=True)[1]
+
+df_nbf = pd.DataFrame()
+df_nbf.index = selected_feature_indices
+print(df_nbf.index)
+# Convert log probabilities to probabilities. 
+df_nbf['deceptive'] = np.e**(mnb2.feature_log_prob_[0, :])
+df_nbf['true'] = np.e**(mnb2.feature_log_prob_[1, :])
+
+ 
+df_nbf['odds_deceptive'] = (df_nbf['deceptive']/df_nbf['true'])*(prob_pos /prob_neg)
+df_nbf['odds_true'] = (df_nbf['true']/df_nbf['deceptive'])*(prob_neg/prob_pos )
+
+# Sort the odds ratios for both classes
+sorted_positive_indices = df_nbf['odds_deceptive'].sort_values(ascending=False).index[:5]
+sorted_negative_indices = df_nbf['odds_true'].sort_values(ascending=False).index[:5]
+# Extract top 5 positive and negative odds ratios along with their corresponding words
+top_positive_ratios = df_nbf['odds_deceptive'][sorted_positive_indices]
+top_negative_ratios = df_nbf['odds_true'][sorted_negative_indices]
+
+# Here are the top5 most important words of your positive class:
+odds_pos_top5 = df_nbf.sort_values('odds_deceptive',ascending=False)['odds_deceptive'][:5]
+# Here are the top5 most important words of your negative class:
+odds_neg_top5 = df_nbf.sort_values('odds_true',ascending=False)['odds_true'][:5]
+
+top_positive_words = [feature_names_train[i] for i in sorted_positive_indices[:5]]
+top_negative_words = [feature_names_train[i] for i in sorted_negative_indices[:5]]
+
+# Print the top 5 positive and negative words along with their odds ratios
+print("Top 5 deceptive words:")
+for word, odds_ratio in zip(top_positive_words, top_positive_ratios):
+    print(f"{word}: {odds_ratio}")
+
+print("\nTop 5 true words:")
+for word, odds_ratio in zip(top_negative_words, top_negative_ratios):
+    print(f"{word}: {odds_ratio}")
+
+# Data for plotting
+words = top_positive_words + top_negative_words
+odds_ratios = list(top_positive_ratios) + list(top_negative_ratios)
+labels = ['Deceptive'] * 5 + ['True'] * 5
+
+# Create a bar plot
+plt.figure(figsize=(10, 6))
+plt.bar(range(len(words)), odds_ratios, tick_label=words, color=['red', 'red', 'red', 'red', 'red','green', 'green', 'green', 'green', 'green',])
+plt.xlabel('Words')
+plt.ylabel('Odds Ratios')
+plt.title('Top 5 Deceptive and True Words with Odds Ratios')
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.savefig("FIA_naiveBest.jpg")
